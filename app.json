@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Ringwise",
+    "slug": "callos",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "callos",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "backgroundColor": "#F3EFE6",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "package": "com.callos.app",
+      "permissions": [],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "themeColor": "#17140F",
+      "description": "Call tracking, recording and transcripts for sales teams."
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      "expo-sharing",
+      [
+        "expo-audio",
+        {
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      "expo-background-task"
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
+  }
+}
