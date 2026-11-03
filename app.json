@@ -2,18 +2,20 @@
   "expo": {
     "name": "Ringwise",
     "slug": "callos",
+    "owner": "calloss-team",
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "callos",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "backgroundColor": "#F3EFE6",
     "assetBundlePatterns": [
       "**/*"
     ],
     "android": {
       "package": "com.callos.app",
-      "permissions": [],
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.ACCESS_FINE_LOCATION",
@@ -38,8 +40,17 @@
           "enableBackgroundPlayback": false
         }
       ],
-      "expo-background-task"
+      "expo-background-task",
+      "expo-asset"
     ],
+    "extra": {
+      "eas": {
+        "projectId": "d7298797-de99-40fc-8251-dc5b61491732"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d7298797-de99-40fc-8251-dc5b61491732"
+    },
     "runtimeVersion": {
       "policy": "appVersion"
     }

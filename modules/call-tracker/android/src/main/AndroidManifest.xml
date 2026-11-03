@@ -1,0 +1,22 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- What the call tracker reads. Each is asked for at setup with a line on why. -->
+  <uses-permission android:name="android.permission.READ_CALL_LOG" />
+  <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+  <uses-permission android:name="android.permission.READ_PHONE_NUMBERS" />
+  <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+  <application>
+    <!-- Call ended → after-call prompt. Only the system (which holds
+         READ_PHONE_STATE) can send it, so another app can't fake a call. -->
+    <receiver
+      android:name=".CallStateReceiver"
+      android:exported="true"
+      android:permission="android.permission.READ_PHONE_STATE">
+      <intent-filter>
+        <action android:name="android.intent.action.PHONE_STATE" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>
