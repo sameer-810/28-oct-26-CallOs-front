@@ -24,7 +24,11 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: from 19 Oct 2026 that label moved to Ubuntu 26,
+    # where android-actions/setup-android fails in its first seconds (the same
+    # workflow in the inventory app built fine until then, and failed at that
+    # step right after). 24.04 is the image these builds were proven on.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     # Needed so the workflow can publish the build as a GitHub Release asset.
     permissions:
