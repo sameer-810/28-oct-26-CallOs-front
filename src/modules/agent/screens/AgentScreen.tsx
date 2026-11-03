@@ -211,7 +211,7 @@ export default function AgentScreen() {
           <Banner
             tone="info"
             title="Set up, not switched on yet"
-            message="The agent needs a Twilio number with a public API address, and a Claude API key. You can build campaigns and upload leads now; calling starts once those are in. See docs/AI_AGENT.md."
+            message="The agent needs a Twilio number with a public API address, and a Gemini API key. You can build campaigns and upload leads now; calling starts once those are in. See docs/AI_AGENT.md."
           />
         </View>
       ) : null}
