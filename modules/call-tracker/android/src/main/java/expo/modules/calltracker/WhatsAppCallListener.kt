@@ -72,7 +72,7 @@ class WhatsAppCallListener : NotificationListenerService() {
       .put("video", call.optBoolean("video"))
       .put("title", call.optString("title"))
       .put("startedAt", call.optLong("startedAt", now))
-      .put("durationSec", if (connectedAt > 0) ((now - connectedAt) / 1000).coerceAtLeast(0) else 0)
+      .put("durationSec", if (connectedAt > 0) ((now - connectedAt) / 1000).coerceAtLeast(0L) else 0L)
 
     val queue = JSONArray(prefs.getString(QUEUE, "[]") ?: "[]")
     queue.put(done)

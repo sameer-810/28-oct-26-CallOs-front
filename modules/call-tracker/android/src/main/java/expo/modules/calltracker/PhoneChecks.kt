@@ -60,7 +60,7 @@ object PhoneChecks {
    */
   fun open(context: Context, what: String): Boolean {
     val pkg = context.packageName
-    val candidates: List<Intent> = when (what) {
+    val forSetting: List<Intent> = when (what) {
       "battery" -> listOf(
         Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$pkg")),
         Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
@@ -83,7 +83,9 @@ object PhoneChecks {
       )
       "defaultDialer" -> listOf(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
       else -> emptyList()
-    } + Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
+    }
+    // the app's own settings page is always the last resort
+    val candidates = forSetting + Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
 
     for (intent in candidates) {
       intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

@@ -230,7 +230,7 @@ class CallTrackerModule : Module() {
     if (!type.startsWith("audio/") && type != "application/octet-stream") return null
     val uri: Uri = (
       if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-      else @Suppress("DEPRECATION") (intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri)
+      else @Suppress("DEPRECATION") intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
       ) ?: return null
     var name = ""
     var size = 0L
