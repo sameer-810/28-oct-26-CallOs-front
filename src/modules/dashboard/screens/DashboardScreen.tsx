@@ -7,7 +7,7 @@ import { RANGE_LABEL, useFilters } from "@shared/store/useFilters";
 import { useRefreshOnFocus } from "@shared/hooks/useRefreshOnFocus";
 import { clock, dayLabel, delta, firstName, greeting, hourLabel, num, pct, talkTime } from "@shared/format";
 import { palette, space } from "@shared/designSystem";
-import { Banner, Button, Card, RangeBar, Screen, StatTile, Tag, Text, useBreakpoint } from "@shared/ui";
+import { Banner, Button, Card, RangeBar, Screen, StatTile, Tag, Text, TONE_COLOR, useBreakpoint } from "@shared/ui";
 import { Bars, Legend } from "@shared/charts/Bars";
 import { Split } from "@shared/charts/Split";
 import { ROLE_LABEL } from "@modules/auth/types";
@@ -180,6 +180,34 @@ export default function DashboardScreen({ navigation }: Props) {
                   />
                 )}
               </Panel>
+
+              {!singleDay ? (
+                <Panel title="Talk time per day" caption="Minutes on connected calls, each day.">
+                  <Bars
+                    height={140}
+                    data={s.byDay.map((d) => ({
+                      label: s.byDay.length > 10 ? d.day.slice(8) : dayLabel(d.day).split(" ")[0].replace(",", ""),
+                      value: Math.round(d.talkSec / 60),
+                      inner: Math.round(d.talkSec / 60),
+                    }))}
+                    labelEvery={s.byDay.length > 16 ? 3 : 1}
+                    summary={`Talk time per day, ${s.byDay.length} days. Total ${talkTime(t.talkSec)}.`}
+                  />
+                </Panel>
+              ) : null}
+
+              {s.byStatus?.length ? (
+                <Panel title="Lead statuses" caption="Calls by the status set after them.">
+                  <Split
+                    summary={s.byStatus.map((x) => `${x.label} ${x.count}`).join(", ")}
+                    parts={s.byStatus.map((x) => ({
+                      label: x.label,
+                      value: x.count,
+                      color: TONE_COLOR[company.dispositions?.find((d) => d.key === x.key)?.tone ?? "neutral"],
+                    }))}
+                  />
+                </Panel>
+              ) : null}
 
               <View style={[styles.pair, !isWide && { flexDirection: "column" }]}>
                 <View style={{ flex: 1 }}>

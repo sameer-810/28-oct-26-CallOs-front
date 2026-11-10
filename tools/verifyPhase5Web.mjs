@@ -56,8 +56,19 @@ try {
   check((await m.getByLabel(/^AI score \d+ out of 100$/).count()) > 0, "each reviewed call shows its score");
 
   await m.getByRole("button", { name: "Lowest score first", exact: true }).click();
-  await m.waitForTimeout(1500);
-  const scores = await m.getByLabel(/^AI score \d+ out of 100$/).evaluateAll((els) => els.map((e) => Number(e.getAttribute("aria-label").match(/\d+/)[0])));
+  // only the Calls list on screen: tabs stay mounted, and Home lists recent calls with scores too.
+  // The previous list stays up while the sorted one loads, so wait for it to settle.
+  const read = () =>
+    m
+      .getByLabel(/^AI score \d+ out of 100$/)
+      .evaluateAll((els) => els.filter((e) => e.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && !e.closest("[aria-hidden=\"true\"]") && getComputedStyle(e.closest("[data-testid]") ?? e).pointerEvents !== "none").map((e) => Number(e.getAttribute("aria-label").match(/\d+/)[0])));
+  const sorted = (a) => a.length > 1 && a.every((s, i) => i === 0 || s >= a[i - 1]);
+  let scores = [];
+  for (let i = 0; i < 20; i++) {
+    await m.waitForTimeout(500);
+    scores = await read();
+    if (sorted(scores)) break;
+  }
   check(scores.length > 1 && scores.every((s, i) => i === 0 || s >= scores[i - 1]), `lowest score first is sorted (${scores.slice(0, 5).join(", ")}…)`);
   await m.screenshot({ path: `${evidence}/p5-01-coaching-queue.png` });
 

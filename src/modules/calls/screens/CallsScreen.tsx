@@ -143,13 +143,15 @@ export default function CallsScreen({ route, navigation }: Props) {
     const items = calls.data?.items ?? [];
     const out: { key: string; calls: Call[] }[] = [];
     const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: tz });
+    // sorted by score, or one row per client, the days interleave: no day headers then
+    const byDay = review !== "worst" && grouping === "all" && type !== "unique";
     for (const c of items) {
-      const key = fmt.format(new Date(c.startedAt));
+      const key = byDay ? fmt.format(new Date(c.startedAt)) : "all";
       if (out.at(-1)?.key !== key) out.push({ key, calls: [] });
       out.at(-1)!.calls.push(c);
     }
     return out;
-  }, [calls.data, tz]);
+  }, [calls.data, tz, review, grouping, type]);
 
   async function exportXlsx() {
     setExporting(true);
@@ -328,9 +330,9 @@ export default function CallsScreen({ route, navigation }: Props) {
             }
           />
         ) : (
-          grouped.map((g) => (
-            <Fragment key={g.key}>
-              {grouped.length > 1 || filters.range !== "today" ? (
+          grouped.map((g, gi) => (
+            <Fragment key={`${g.key}-${gi}`}>
+              {g.key !== "all" && (grouped.length > 1 || filters.range !== "today") ? (
                 <View style={styles.dayHead}>
                   <Text variant="eyebrow" tone="secondary" style={{ marginBottom: 0 }}>
                     {dayLabel(g.key)}

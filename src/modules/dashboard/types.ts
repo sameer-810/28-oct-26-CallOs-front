@@ -34,6 +34,8 @@ export interface Summary {
   range: { from: string; to: string; name: string };
   totals: Totals;
   personal: Personal;
+  /** Calls by the status the rep set, most first. */
+  byStatus: { key: string; label: string; count: number }[];
   previous: { total: number; connected: number; talkSec: number; missed: number };
   byDay: { day: string; total: number; connected: number; missed: number; talkSec: number }[];
   byHour: { hour: number; total: number; connected: number }[];

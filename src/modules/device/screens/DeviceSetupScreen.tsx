@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import * as IntentLauncher from "expo-intent-launcher";
-import { CallTracker, type Sim } from "@/modules/call-tracker";
+import { CallTracker, type CallLogRow, type Sim } from "@/modules/call-tracker";
 import { useAuthStore } from "@shared/store/useAuthStore";
 import { formatPhone } from "@shared/format";
 import { fonts, palette, radius, space } from "@shared/designSystem";
@@ -21,6 +21,9 @@ import { registerBackgroundSync } from "../backgroundSync";
 import { environment } from "@config/env";
 
 type Step = "permissions" | "sim" | "verify" | "battery" | "done";
+/** Read on a tap, never while drawing: the setup time a SIM is stamped with. */
+const clockNow = () => Date.now();
+
 const STEPS: Step[] = ["permissions", "sim", "verify", "battery", "done"];
 const LABEL: Record<Step, string> = {
   permissions: "Permissions",
@@ -176,7 +179,7 @@ export default function DeviceSetupScreen() {
 
   /** Saves the work SIMs. Android vouching for the typed number counts as proof; otherwise a test call does. */
   function chooseSims() {
-    const now = Date.now();
+    const now = clockNow();
     const list: WorkSim[] = picked.map((slot) => {
       const sim = sims.find((x) => x.slot === slot);
       const typed = digits(numbers[slot]);
@@ -199,9 +202,28 @@ export default function DeviceSetupScreen() {
       watermark: now,
     });
     setStep("verify");
+    void loadRecent();
   }
 
   /** Looks for the test call in the call log: any outgoing call on a SIM after setup proves it. */
+  /** The last few calls Android tagged with each set-up SIM: tapping one proves the SIM, as callos lets you. */
+  const [recent, setRecent] = useState<Record<number, CallLogRow[]>>({});
+  async function loadRecent() {
+    if (!CallTracker) return;
+    const rows = await CallTracker.readCallLog(Date.now() - 14 * 86_400_000, 500).catch(() => []);
+    const bySlot: Record<number, CallLogRow[]> = {};
+    for (const r of [...rows].reverse()) {
+      if (r.simSlot === null) continue;
+      (bySlot[r.simSlot] ??= []).length < 3 && bySlot[r.simSlot].push(r);
+    }
+    setRecent(bySlot);
+  }
+  function proveWith(slot: number) {
+    const now = clockNow();
+    const next = useDeviceStore.getState().sims.map((x) => (x.slot === slot ? { ...x, verifiedAt: now } : x));
+    set({ sims: next, simConfirmed: next.every((x) => x.verifiedAt !== null) });
+  }
+
   async function checkProof() {
     const current = useDeviceStore.getState().sims;
     if (!CallTracker || current.length === 0) return;
@@ -400,7 +422,34 @@ export default function DeviceSetupScreen() {
                   </Text>
                 </View>
                 {w.verifiedAt ? null : (
-                  <Button kind="ghost" size="sm" label={`Make a test call from SIM ${w.slot + 1}`} onPress={() => void Linking.openURL("tel:")} />
+                  <>
+                    {(recent[w.slot] ?? []).length ? (
+                      <>
+                        <Text variant="caption" tone="secondary">
+                          Tap a call you made or received on SIM {w.slot + 1}:
+                        </Text>
+                        {(recent[w.slot] ?? []).map((r) => (
+                          <Pressable
+                            key={r.id}
+                            onPress={() => proveWith(w.slot)}
+                            accessibilityRole="button"
+                            style={({ pressed }) => [styles.recentCall, pressed && { backgroundColor: palette.paper }]}
+                          >
+                            <Text variant="bodyMedium" style={{ flex: 1 }} numberOfLines={1}>
+                              {r.name || formatPhone(r.number) || "Private number"}
+                            </Text>
+                            <Text variant="mono" tone="tertiary">
+                              {new Date(r.date).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit" })}
+                            </Text>
+                          </Pressable>
+                        ))}
+                        <Text variant="caption" tone="tertiary" align="center">
+                          or
+                        </Text>
+                      </>
+                    ) : null}
+                    <Button kind="ghost" size="sm" label={`Make a test call from SIM ${w.slot + 1}`} onPress={() => void Linking.openURL("tel:")} />
+                  </>
                 )}
               </Card>
             ))}
@@ -515,6 +564,15 @@ const styles = StyleSheet.create({
   simOn: { borderColor: palette.ink, borderWidth: 2, padding: space.lg - 1 },
   simColumn: { flexDirection: "column", alignItems: "stretch" },
   simRow: { flexDirection: "row", alignItems: "center", gap: space.md },
+  recentCall: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    padding: space.sm,
+    borderWidth: 1,
+    borderColor: palette.rule,
+    borderRadius: radius.md,
+  },
   simChip: {
     width: 52,
     height: 40,
