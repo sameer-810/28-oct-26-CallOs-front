@@ -83,7 +83,10 @@ async function armFollowups() {
   if (!CallTracker) return;
   const me = useAuthStore.getState().user?.id;
   if (!me) return;
-  const { items } = await callsApi.followUps("all");
+  // only today's and later ones can ring; "all" is oldest first and a long
+  // overdue backlog would fill the page before tomorrow's ever arrived
+  const [today, upcoming] = await Promise.all([callsApi.followUps("today"), callsApi.followUps("upcoming")]);
+  const items = [...today.items, ...upcoming.items];
   const n = CallTracker.setFollowups(followupAlarms(items, me, Date.now()));
   useDeviceStore.getState().set({ alarms: n });
 }
