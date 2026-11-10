@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { NavigationContainer, type LinkingOptions } from "@react-navigation/native";
+import { NavigationContainer, getStateFromPath, type LinkingOptions } from "@react-navigation/native";
 import { QueryClientProvider } from "@tanstack/react-query";
 import * as SplashScreen from "expo-splash-screen";
 import * as Linking from "expo-linking";
@@ -21,6 +21,16 @@ void SplashScreen.preventAutoHideAsync();
 // the landing page links to /sign-in and /sign-up; a shared join link is /join/CODE
 const linking: LinkingOptions<RootParamList> = {
   prefixes: [Linking.createURL("/")],
+  /**
+   * The phone opens callos://after-call when a call ends. That path carries
+   * no data, so a route alias never set a param and the call never opened;
+   * it becomes Calls with a fresh afterCall stamp, which syncs and opens it.
+   */
+  getStateFromPath: (path, options) => {
+    const p = path.startsWith("/") ? path.slice(1) : path;
+    const afterCall = p === "after-call" || p.startsWith("after-call?") || p.startsWith("after-call/");
+    return getStateFromPath(afterCall ? `calls?afterCall=${Date.now()}` : path, options);
+  },
   config: {
     screens: {
       Auth: {
@@ -35,11 +45,7 @@ const linking: LinkingOptions<RootParamList> = {
       App: {
         screens: {
           Home: "",
-          Calls: {
-            path: "calls",
-            // the after-call notification opens callos://after-call
-            alias: [{ path: "after-call", exact: true, parse: { afterCall: () => String(Date.now()) } }],
-          },
+          Calls: "calls",
           Opportunities: "opportunities",
           Reports: "reports/:tab?",
           Inbox: "inbox",
