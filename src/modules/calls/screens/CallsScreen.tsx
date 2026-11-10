@@ -172,7 +172,8 @@ export default function CallsScreen({ route, navigation }: Props) {
     <View style={styles.page}>
     <Screen>
       <View style={styles.head}>
-        <View>
+        {/* takes the room the buttons leave, so "Calls" never breaks across lines */}
+        <View style={{ flexGrow: 1, flexShrink: 0, minWidth: 140 }}>
           <Text variant="eyebrow" tone="tertiary">
             {manager ? "Everyone's calls" : "Your calls"}
           </Text>

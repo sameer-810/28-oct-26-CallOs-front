@@ -167,7 +167,7 @@ export default function DeviceSetupScreen() {
     // the SIM's own number when Android shares it; the account's number for a lone SIM
     setNumbers(
       Object.fromEntries(
-        list.map((x) => [x.slot, (x.number ?? (list.length === 1 ? user?.phone : "") ?? "").replace(/^\+91/, "")]),
+        list.map((x) => [x.slot, (x.number ?? (list.length === 1 ? user?.phone : "") ?? "").replace(/\D/g, "").slice(-10)]),
       ),
     );
     if (list.length === 1) setPicked([list[0].slot]);
@@ -276,9 +276,9 @@ export default function DeviceSetupScreen() {
         {step === "permissions"
           ? "Allow what it needs"
           : step === "sim"
-            ? "Which SIM is for work?"
+            ? "Which SIMs are for work?"
             : step === "verify"
-              ? "Is this your number?"
+              ? "Verify your SIMs"
               : step === "battery"
                 ? "Keep it running"
                 : "You’re set"}
