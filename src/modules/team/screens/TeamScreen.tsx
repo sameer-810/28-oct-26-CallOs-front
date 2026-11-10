@@ -6,7 +6,7 @@ import { formatPhone, initials, timeAgo } from "@shared/format";
 import { fonts, palette, radius, space } from "@shared/designSystem";
 import { Banner, Button, Card, ConfirmDialog, Screen, Tag, Text, TextField, useBreakpoint } from "@shared/ui";
 import { ROLE_LABEL, type AuthUser } from "@modules/auth/types";
-import type { StatusFilter } from "../types";
+import type { StatusFilter, TeamMember } from "../types";
 import { useSetRole, useSetStatus, useTeam } from "../hooks/useTeam";
 import { useRefreshOnFocus } from "@shared/hooks/useRefreshOnFocus";
 import { useNow } from "@shared/hooks/useNow";
@@ -15,6 +15,7 @@ import { useDevices } from "@modules/device/hooks/useDevices";
 import type { DeviceInfo } from "@modules/device/types";
 import { GetTheAppCard } from "../components/GetTheAppCard";
 import { TeamTable } from "../components/TeamTable";
+import { MemberSheet } from "../components/MemberSheet";
 
 const RANK = { owner: 3, manager: 2, rep: 1 } as const;
 
@@ -53,9 +54,11 @@ function Row({
   isWide,
   onStatus,
   onRole,
+  onOpen,
   device,
   now,
 }: {
+  onOpen: () => void;
   device: DeviceInfo | undefined;
   now: number;
   u: AuthUser;
@@ -88,7 +91,7 @@ function Row({
 
   return (
     <View style={[styles.row, !u.isActive && styles.rowOff]}>
-      <View style={styles.rowMain}>
+      <Pressable style={styles.rowMain} onPress={onOpen} accessibilityRole="button" accessibilityLabel={`Open ${u.name}`}>
         <View style={[styles.avatar, u.role !== "rep" && styles.avatarInk]}>
           <Text style={[styles.avatarText, u.role !== "rep" && { color: palette.paper }]}>{initials(u.name)}</Text>
         </View>
@@ -114,13 +117,14 @@ function Row({
           ) : null}
         </View>
         {isWide ? actions : null}
-      </View>
+      </Pressable>
       {!isWide ? actions : null}
     </View>
   );
 }
 
 export default function TeamScreen() {
+  const [open, setOpen] = useState<TeamMember | null>(null);
   const me = useAuthStore((s) => s.user);
   const company = useAuthStore((s) => s.company);
   const { isWide } = useBreakpoint();
@@ -233,6 +237,7 @@ export default function TeamScreen() {
             deviceOf={deviceOf}
             onStatus={(u) => setPending({ kind: "status", user: u })}
             onRole={(u) => setPending({ kind: "role", user: u })}
+            onOpen={setOpen}
           />
         ) : team.data?.items.length ? (
           team.data.items.map((u) => (
@@ -245,6 +250,7 @@ export default function TeamScreen() {
               now={now}
               onStatus={() => setPending({ kind: "status", user: u })}
               onRole={() => setPending({ kind: "role", user: u })}
+              onOpen={() => setOpen(u)}
             />
           ))
         ) : (
@@ -256,6 +262,10 @@ export default function TeamScreen() {
           </View>
         )}
       </Card>
+
+      {open ? (
+        <MemberSheet member={open} device={deviceOf(open.id)} tz={company?.timezone ?? "Asia/Kolkata"} onClose={() => setOpen(null)} />
+      ) : null}
 
       <ConfirmDialog
         visible={!!dialog}

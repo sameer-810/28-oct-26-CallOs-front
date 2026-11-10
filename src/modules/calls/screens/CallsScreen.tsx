@@ -67,6 +67,7 @@ export default function CallsScreen({ route, navigation }: Props) {
   const [status, setStatus] = useState<string>("");
   const [review, setReview] = useState<"" | "reviewed" | "worst">("");
   const [source, setSource] = useState<CallSource | "">("");
+  const [sim, setSim] = useState<number | null>(null);
   const [recording, setRecording] = useState<RecordingFilter>("");
   const view = useCallsView((s) => s.view);
   const setView = useCallsView((s) => s.setView);
@@ -87,6 +88,7 @@ export default function CallsScreen({ route, navigation }: Props) {
     ...(type !== "all" ? TYPE_PARAMS[type] : {}),
     ...(grouping === "recent" ? { group: "unique" } : grouping === "frequent" ? { group: "frequent" } : {}),
     ...(source ? { sources: source } : {}),
+    ...(sim !== null ? { simSlots: String(sim), sources: "phone" } : {}),
     ...(recording === "recorded" ? { recorded: "true" } : recording === "untranscribed" ? { recorded: "true", transcript: "none,failed" } : {}),
     ...(status ? { leadStatus: status } : {}),
     ...(review === "reviewed" ? { transcribed: "true" } : review === "worst" ? { sort: "lowest_score" } : {}),
@@ -223,8 +225,11 @@ export default function CallsScreen({ route, navigation }: Props) {
             )),
           ];
           const sources = [
-            <Chip key="any-source" label="Any source" selected={!source} onPress={() => setSource("")} />,
-            ...SOURCES.map((s) => <Chip key={s} label={SOURCE_LABEL[s]} selected={source === s} onPress={() => { setSource(s); setLimit(PAGE); }} />),
+            <Chip key="any-source" label="Any source" selected={!source && sim === null} onPress={() => { setSource(""); setSim(null); }} />,
+            ...SOURCES.map((s) => <Chip key={s} label={SOURCE_LABEL[s]} selected={source === s && sim === null} onPress={() => { setSource(s); setSim(null); setLimit(PAGE); }} />),
+            ...[0, 1].map((slot) => (
+              <Chip key={`sim${slot}`} label={`SIM ${slot + 1}`} selected={sim === slot} onPress={() => { setSim(sim === slot ? null : slot); setSource(""); setLimit(PAGE); }} />
+            )),
             <View key="sep" style={styles.sep} />,
             <Chip key="recorded" label="Recorded" selected={recording === "recorded"} onPress={() => setRecording(recording === "recorded" ? "" : "recorded")} />,
             <Chip key="untranscribed" label="Not transcribed yet" selected={recording === "untranscribed"} onPress={() => setRecording(recording === "untranscribed" ? "" : "untranscribed")} />,
@@ -296,14 +301,14 @@ export default function CallsScreen({ route, navigation }: Props) {
           <EmptyState title="Couldn't load calls" body={apiErrorMessage(calls.error)} action={<Button size="sm" kind="ghost" label="Try again" onPress={() => calls.refetch()} />} />
         ) : !total ? (
           <EmptyState
-            title={search || type !== "all" || status || source || recording || grouping !== "all" ? "No calls match this filter" : "No calls in this period"}
+            title={search || type !== "all" || status || source || recording || grouping !== "all" || sim !== null ? "No calls match this filter" : "No calls in this period"}
             body={
               search || type !== "all" || status || source || recording
                 ? "Try a wider date range or clear a filter."
                 : "Calls appear here a minute after they end, from every phone in your team."
             }
             action={
-              search || type !== "all" || status || source || recording || grouping !== "all" ? (
+              search || type !== "all" || status || source || recording || grouping !== "all" || sim !== null ? (
                 <Button
                   size="sm"
                   kind="ghost"
@@ -316,6 +321,7 @@ export default function CallsScreen({ route, navigation }: Props) {
                     setRecording("");
                     setReview("");
                     setGrouping("all");
+                    setSim(null);
                   }}
                 />
               ) : undefined

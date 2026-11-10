@@ -1,4 +1,4 @@
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { dateIn, formatPhone, timeAgo } from "@shared/format";
 import { fonts, palette } from "@shared/designSystem";
 import { Button, Tag, Text } from "@shared/ui";
@@ -22,7 +22,9 @@ export function TeamTable({
   deviceOf,
   onStatus,
   onRole,
+  onOpen,
 }: {
+  onOpen: (u: TeamMember) => void;
   /** The phone's live report — what the Device column judges health from. */
   deviceOf: (userId: string) => DeviceInfo | undefined;
   rows: TeamMember[];
@@ -39,10 +41,12 @@ export function TeamTable({
       label: "Name",
       width: 180,
       render: (u) => (
-        <Text style={styles.name} numberOfLines={1}>
-          {u.name}
-          {u.id === me.id ? <Text style={styles.you}> (you)</Text> : null}
-        </Text>
+        <Pressable onPress={() => onOpen(u)} accessibilityRole="link" accessibilityLabel={`Open ${u.name}`}>
+          <Text style={[styles.name, { textDecorationLine: "underline" }]} numberOfLines={1}>
+            {u.name}
+            {u.id === me.id ? <Text style={styles.you}> (you)</Text> : null}
+          </Text>
+        </Pressable>
       ),
     },
     { key: "role", label: "Role", width: 92, render: (u) => <Tag label={ROLE_LABEL[u.role]} tone={u.role === "owner" ? "ink" : "neutral"} /> },

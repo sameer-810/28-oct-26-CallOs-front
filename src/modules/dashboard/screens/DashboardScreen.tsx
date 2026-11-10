@@ -11,7 +11,8 @@ import { Banner, Button, Card, RangeBar, Screen, StatTile, Tag, Text, useBreakpo
 import { Bars, Legend } from "@shared/charts/Bars";
 import { Split } from "@shared/charts/Split";
 import { ROLE_LABEL } from "@modules/auth/types";
-import { useFollowUps } from "@modules/calls/hooks/useCalls";
+import { useCalls, useFollowUps } from "@modules/calls/hooks/useCalls";
+import { CallRow } from "@modules/calls/components/CallRow";
 import { GLANCE_PERIODS, useGlance, useHighlights, useSummary } from "../hooks/useSummary";
 import { Glance, PipelineCard, TopSalespersonCard } from "../components/Highlights";
 import { FollowUps, Leaderboard, Opportunities, Panel } from "../components/Panels";
@@ -32,6 +33,8 @@ export default function DashboardScreen({ navigation }: Props) {
   const isManager = user?.role === "owner" || user?.role === "manager";
   const highlights = useHighlights(isManager);
   const glance = useGlance(isManager);
+  // the admin app's "Recent calls": the last few across the team, whatever the range
+  const recent = useCalls({ range: "last7", limit: 5 }, isManager);
   useRefreshOnFocus(summary.refetch);
   useRefreshOnFocus(followUps.refetch);
 
@@ -237,6 +240,35 @@ export default function DashboardScreen({ navigation }: Props) {
               {manager ? (
                 <Panel title="Leaderboard" caption="By connected calls, then talk time." action={<Button kind="quiet" size="sm" label="Report" onPress={() => goReports("employees")} />}>
                   <Leaderboard rows={s.leaderboard} />
+                </Panel>
+              ) : null}
+              {manager ? (
+                <Panel
+                  title="Recent calls"
+                  caption="The latest calls across the team."
+                  action={<Button kind="quiet" size="sm" label="Calls" onPress={() => navigation.navigate("Calls")} />}
+                >
+                  {recent.data ? (
+                    recent.data.items.length ? (
+                      <View style={{ marginHorizontal: -space.lg }}>
+                        {recent.data.items.map((c) => (
+                          <CallRow
+                            key={c.id}
+                            call={c}
+                            tz={tz}
+                            isWide={isWide}
+                            showEmployee
+                            dispositions={company.dispositions ?? []}
+                            onPress={() => navigation.navigate("Calls", { open: c.id })}
+                          />
+                        ))}
+                      </View>
+                    ) : (
+                      <Text tone="tertiary">No calls in the last 7 days.</Text>
+                    )
+                  ) : (
+                    <ActivityIndicator color={palette.ink} />
+                  )}
                 </Panel>
               ) : null}
               <Panel title="Follow-ups" caption="Call-backs promised to clients." action={<Button kind="quiet" size="sm" label="Calls" onPress={() => navigation.navigate("Calls")} />}>
