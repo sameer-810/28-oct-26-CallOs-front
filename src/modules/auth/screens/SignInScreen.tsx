@@ -52,6 +52,7 @@ export default function SignInScreen({ navigation }: Props) {
       />
 
       <Button label="Sign in" onPress={submit} loading={signIn.isPending} testID="signin-submit" />
+      <Button kind="ghost" label="Forgot password?" onPress={() => navigation.navigate("ResetPassword")} />
 
       <Rule style={styles.rule} />
 

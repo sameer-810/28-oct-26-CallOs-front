@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PAGE_MAX, palette, space } from "../designSystem";
@@ -12,11 +12,15 @@ interface Props {
   scroll?: boolean;
 }
 
+/** True under a header that already sits below the status bar (the phone's top bar). */
+export const TopInsetHandled = createContext(false);
+
 /** Safe area, keyboard avoidance, page background and a centred column. */
 export function Screen({ children, maxWidth = PAGE_MAX, footer, scroll = true }: Props) {
+  const topHandled = useContext(TopInsetHandled);
   const column = <View style={[styles.column, { maxWidth }]}>{children}</View>;
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView style={styles.safe} edges={topHandled ? ["left", "right"] : ["top", "left", "right"]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}

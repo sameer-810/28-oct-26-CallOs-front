@@ -17,7 +17,6 @@
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "blockedPermissions": [
-        "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.RECORD_AUDIO"
@@ -41,7 +40,8 @@
         }
       ],
       "expo-background-task",
-      "expo-asset"
+      "expo-asset",
+      "./modules/call-tracker/app.plugin.js"
     ],
     "extra": {
       "eas": {

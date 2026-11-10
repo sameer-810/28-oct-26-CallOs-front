@@ -6,9 +6,19 @@
   <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <!-- caller names on the log, and the number behind a WhatsApp contact's name -->
+  <uses-permission android:name="android.permission.READ_CONTACTS" />
+  <!-- "call back" from the log, and the test call that proves a SIM's number -->
+  <uses-permission android:name="android.permission.CALL_PHONE" />
+  <!-- opening the after-call sheet the moment a call ends -->
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+  <!-- asks to be left out of battery saving; the rep still decides -->
+  <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+  <!-- follow-up reminders are set again after a restart -->
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
   <application>
-    <!-- Call ended → after-call prompt. Only the system (which holds
+    <!-- Call ended → after-call sheet. Only the system (which holds
          READ_PHONE_STATE) can send it, so another app can't fake a call. -->
     <receiver
       android:name=".CallStateReceiver"
@@ -16,6 +26,27 @@
       android:permission="android.permission.READ_PHONE_STATE">
       <intent-filter>
         <action android:name="android.intent.action.PHONE_STATE" />
+      </intent-filter>
+    </receiver>
+
+    <!-- WhatsApp call capture. Android binds it only after the rep switches on
+         notification access for this app, and only the system can bind it. -->
+    <service
+      android:name=".WhatsAppCallListener"
+      android:label="WhatsApp call logging"
+      android:exported="true"
+      android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+      <intent-filter>
+        <action android:name="android.service.notification.NotificationListenerService" />
+      </intent-filter>
+    </service>
+
+    <!-- Lead follow-up reminders: our own alarm, so not exported. -->
+    <receiver android:name=".FollowupAlarmReceiver" android:exported="false" />
+    <receiver android:name=".FollowupBootReceiver" android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
       </intent-filter>
     </receiver>
   </application>

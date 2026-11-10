@@ -18,7 +18,27 @@ export type IconName =
   | "bell"
   | "book"
   | "message"
-  | "card";
+  | "card"
+  | "sync"
+  | "shield"
+  | "phone"
+  | "sms"
+  | "whatsapp"
+  | "play"
+  | "dialpad"
+  | "sim"
+  | "folder"
+  | "help"
+  | "wrench"
+  | "trash"
+  | "close"
+  | "clock"
+  | "calendar"
+  | "alert"
+  | "backspace"
+  | "rocket"
+  | "chevron"
+  | "bolt";
 
 /** A handful of line icons drawn for this app, 1.6px strokes on a 20px grid. */
 export function Icon({ name, size = 20, color = palette.ink }: { name: IconName; size?: number; color?: string }) {
@@ -91,6 +111,80 @@ export function Icon({ name, size = 20, color = palette.ink }: { name: IconName;
           <Circle cx={15.5} cy={10} r={1.2} {...p} />
         </>
       )}
+      {name === "sync" && (
+        <>
+          <Path d="M15.5 8A5.6 5.6 0 0 0 5.2 6.2L4 7.5M4.5 12a5.6 5.6 0 0 0 10.3 1.8L16 12.5" {...p} />
+          <Path d="M4 4v3.5h3.5M16 16v-3.5h-3.5" {...p} />
+        </>
+      )}
+      {name === "shield" && <Path d="M10 2.8 4 5v4.6c0 3.6 2.5 6.4 6 7.6 3.5-1.2 6-4 6-7.6V5z" {...p} />}
+      {name === "phone" && (
+        <Path d="M6.6 3.5H4.8a1.3 1.3 0 0 0-1.3 1.4c.5 6 5.3 10.8 11.3 11.3a1.3 1.3 0 0 0 1.4-1.3v-1.8l-3.2-1.3-1.5 1.5a8.3 8.3 0 0 1-3.8-3.8L9.2 8z" {...p} />
+      )}
+      {name === "sms" && (
+        <>
+          <Path d="M4 4h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H9l-4 3v-3H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" {...p} />
+          <Path d="M6.5 9h.01M10 9h.01M13.5 9h.01" {...p} strokeWidth={2.2} />
+        </>
+      )}
+      {name === "whatsapp" && (
+        <>
+          <Path d="M3.5 16.5l1-3.4A6.8 6.8 0 1 1 7 15.6z" {...p} />
+          <Path d="M8 7.2c0 2.5 2.2 4.7 4.7 4.8l.9-1.1-1.4-.7-.6.6a3.4 3.4 0 0 1-1.7-1.7l.6-.6-.6-1.4z" {...p} strokeWidth={1.2} />
+        </>
+      )}
+      {name === "play" && <Path d="M6.5 4.5v11l9-5.5z" {...p} />}
+      {name === "dialpad" && (
+        <>
+          {[5, 10, 15].flatMap((x) => [4, 8.5, 13].map((y) => <Circle key={`${x}-${y}`} cx={x} cy={y} r={1.1} fill={color} />))}
+          <Circle cx={10} cy={17.3} r={1.1} fill={color} />
+        </>
+      )}
+      {name === "sim" && (
+        <>
+          <Path d="M6 2.8h6l3.5 3.5V16a1.2 1.2 0 0 1-1.2 1.2H6A1.2 1.2 0 0 1 4.8 16V4A1.2 1.2 0 0 1 6 2.8z" {...p} />
+          <Path d="M7.5 9.5h5v5h-5zM10 9.5v5M7.5 12h5" {...p} strokeWidth={1.2} />
+        </>
+      )}
+      {name === "folder" && <Path d="M3 6a1 1 0 0 1 1-1h4l1.5 1.8H16a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" {...p} />}
+      {name === "help" && (
+        <>
+          <Circle cx={10} cy={10} r={7} {...p} />
+          <Path d="M8 8a2 2 0 1 1 2.8 1.8c-.5.3-.8.7-.8 1.3v.4M10 14h.01" {...p} />
+        </>
+      )}
+      {name === "wrench" && (
+        <Path d="M12.5 3.5a3.8 3.8 0 0 0-3.6 5L3.7 13.7a1.6 1.6 0 0 0 2.3 2.3l5.2-5.2a3.8 3.8 0 0 0 5-3.6l-2.2 2.2-2.4-.6-.6-2.4z" {...p} />
+      )}
+      {name === "trash" && <Path d="M4 5.5h12M8 5.5V4h4v1.5M5.5 5.5l.8 10.5a1 1 0 0 0 1 .9h5.4a1 1 0 0 0 1-.9l.8-10.5M8.5 8.5v5M11.5 8.5v5" {...p} />}
+      {name === "close" && <Path d="M5 5l10 10M15 5 5 15" {...p} />}
+      {name === "clock" && (
+        <>
+          <Circle cx={10} cy={10} r={7} {...p} />
+          <Path d="M10 6v4l2.5 1.5" {...p} />
+        </>
+      )}
+      {name === "calendar" && (
+        <>
+          <Path d="M4 5h12a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM3 9h14M7 3v3.5M13 3v3.5" {...p} />
+        </>
+      )}
+      {name === "alert" && (
+        <>
+          <Circle cx={10} cy={10} r={7} {...p} />
+          <Path d="M10 6.2v4.6M10 13.6h.01" {...p} strokeWidth={2} />
+        </>
+      )}
+      {name === "backspace" && <Path d="M7 4.5h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H7l-4.5-5.5zM9.5 8l4 4M13.5 8l-4 4" {...p} />}
+      {name === "rocket" && (
+        <>
+          <Path d="M11.5 3.5c2.5 0 5 2.5 5 5-1.5 3-4.5 5.5-7.5 6.5L5 10.5c1-3 3.5-6 6.5-7z" {...p} />
+          <Circle cx={12} cy={8} r={1.4} {...p} />
+          <Path d="M6.5 13.5 4 16M5 10.5 3 11l1.5 1.5M9.5 15l-.5 2 -1.5-1.5" {...p} />
+        </>
+      )}
+      {name === "chevron" && <Path d="M8 5l5 5-5 5" {...p} />}
+      {name === "bolt" && <Path d="M11 2.5 4.5 11h5L9 17.5 15.5 9h-5z" {...p} />}
     </Svg>
   );
 }

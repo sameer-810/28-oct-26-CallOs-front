@@ -44,3 +44,19 @@ test("an unverified SIM is flagged; missing recordings only noted", () => {
   assert.equal(noRec.tone, "tertiary");
   assert.match(noRec.text, /recordings not shared/);
 });
+
+test("the phone's own checklist and battery reach the manager, after the hard failures", () => {
+  const checks = { callLog: true, recordings: true, contacts: true, notifications: true, battery: true, overlay: true, autostart: true, recordingFolder: true, whatsapp: false };
+  const base = { ...ok, sims: [], checks, battery: null, appVersion: "0.1.0" };
+  assert.equal(deviceHealth(base, NOW).text, "Redmi Note 13 · Jio · in sync");
+  assert.match(deviceHealth({ ...base, checks: { ...checks, battery: false } }, NOW).text, /battery saver can stop sync/);
+  assert.match(deviceHealth({ ...base, checks: { ...checks, autostart: false } }, NOW).text, /auto-start is off/);
+  assert.match(
+    deviceHealth({ ...base, battery: { level: 14, charging: false, powerSave: true, at: new Date(NOW).toISOString() } }, NOW).text,
+    /power saving on · 14%/,
+  );
+  const sims = [{ slot: 0, carrier: "Jio", number: "+919876511111", verifiedAt: null }];
+  assert.equal(deviceHealth({ ...base, sims }, NOW).tone, "missed");
+  // the call log still outranks everything
+  assert.match(deviceHealth({ ...base, sims, permissions: { ...ok.permissions, callLog: false } }, NOW).text, /call log/);
+});

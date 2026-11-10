@@ -10,6 +10,10 @@ export const deviceApi = Object.freeze({
     await apiClient.put("/devices/me", body);
   },
 
+  /** Settings → "Send log file". Returns a reference the rep can quote to support. */
+  uploadLog: async (body: { deviceId: string; appVersion: string; note: string; text: string }) =>
+    (await apiClient.post<{ data: { ref: string } }>("/devices/me/logs", body)).data.data,
+
   sendCalls: async (deviceId: string, calls: ApiCall[]) =>
     (await apiClient.post<{ data: BatchResult }>("/calls/batch", { deviceId, calls })).data.data,
 

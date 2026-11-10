@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import SignInScreen from "@modules/auth/screens/SignInScreen";
 import SignUpScreen from "@modules/auth/screens/SignUpScreen";
 import JoinScreen from "@modules/auth/screens/JoinScreen";
+import ResetPasswordScreen from "@modules/auth/screens/ResetPasswordScreen";
 import { environment } from "@config/env";
 import type { AuthStackParamList } from "./types";
 
@@ -13,6 +14,11 @@ export default function AuthNavigator() {
       <Stack.Screen name="SignIn" component={SignInScreen} options={{ title: `Sign in · ${environment.appName}` }} />
       <Stack.Screen name="SignUp" component={SignUpScreen} options={{ title: `Create account · ${environment.appName}` }} />
       <Stack.Screen name="Join" component={JoinScreen} options={{ title: `Join your team · ${environment.appName}` }} />
+      <Stack.Screen
+        name="ResetPassword"
+        component={ResetPasswordScreen}
+        options={{ title: `Reset password · ${environment.appName}` }}
+      />
     </Stack.Navigator>
   );
 }

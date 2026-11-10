@@ -38,6 +38,62 @@ export interface Permissions {
   phoneNumbers: boolean;
   recordings: boolean;
   notifications: boolean;
+  contacts: boolean;
+  callPhone: boolean;
+}
+
+/** Phone settings that aren't runtime permissions. */
+export interface Health {
+  /** Left out of battery optimisation. */
+  battery: boolean;
+  /** "Display over other apps": the after-call sheet opens by itself. */
+  overlay: boolean;
+  /** Notification access, which WhatsApp call logging needs. */
+  whatsapp: boolean;
+  /** This brand has an auto-start switch the rep must turn on by hand. */
+  autostartNeeded: boolean;
+  /** A recording folder is picked and still readable. */
+  recordingFolder: boolean;
+  power: { level: number | null; charging: boolean; powerSave: boolean };
+}
+
+/** "app": the app's own settings page, where a denied permission can still be granted. */
+export type SettingScreen = "battery" | "overlay" | "whatsapp" | "autostart" | "notifications" | "defaultDialer" | "app";
+
+export interface PickedFolder {
+  uri: string;
+  /** e.g. "Recordings/Call" */
+  label: string;
+  readable: boolean;
+}
+
+/** A finished WhatsApp call, as the notification listener saw it. */
+export interface WhatsAppCall {
+  id: string;
+  type: "incoming" | "outgoing" | "missed";
+  video: boolean;
+  title: string;
+  /** From the title, or the contact saved under that name; null when neither. */
+  number: string | null;
+  name: string;
+  startedAt: number;
+  durationSec: number;
+}
+
+export interface FollowupAlarm {
+  /** The call id: tapping the reminder opens that call. */
+  id: string;
+  at: number;
+  title: string;
+  text: string;
+  phone: string;
+}
+
+export interface SharedAudio {
+  uri: string;
+  name: string;
+  mime: string;
+  bytes: number;
 }
 
 interface CallTrackerNative {
@@ -49,6 +105,17 @@ interface CallTrackerNative {
   copyToCache(uri: string, fileName: string): Promise<string>;
   setAfterCallPrompt(enabled: boolean): void;
   lastCallEndedAt(): number;
+  getHealth(): Health;
+  openSetting(what: SettingScreen): boolean;
+  getRecordingFolder(): PickedFolder | null;
+  pickRecordingFolder(): Promise<PickedFolder | null>;
+  pendingWhatsAppCalls(): WhatsAppCall[];
+  ackWhatsAppCalls(ids: string[]): void;
+  setFollowups(list: FollowupAlarm[]): number;
+  /** true: rang out directly; false: opened the dialler. */
+  placeCall(number: string, simSlot: number | null): boolean;
+  takeSharedAudio(): SharedAudio | null;
+  addListener(event: "onSharedAudio", fn: (a: SharedAudio) => void): { remove(): void };
 }
 
 /**

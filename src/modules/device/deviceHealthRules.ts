@@ -19,5 +19,11 @@ export function deviceHealth(d: DeviceInfo | undefined, now: number): { text: st
   }
   if (!d.simVerified) return { text: `${phone} · work SIM not verified`, tone: "missed" };
   if (!d.permissions.recordings) return { text: `${phone} · recordings not shared`, tone: "tertiary" };
+  // from the phone's own setup checklist: the settings that quietly stop background sync
+  if (d.checks && !d.checks.battery) return { text: `${phone} · battery saver can stop sync`, tone: "tertiary" };
+  if (d.checks && !d.checks.autostart) return { text: `${phone} · auto-start is off`, tone: "tertiary" };
+  if (d.battery?.powerSave) return { text: `${phone} · power saving on${d.battery.level !== null ? ` · ${d.battery.level}%` : ""}`, tone: "tertiary" };
+  const unproved = (d.sims ?? []).filter((x) => !x.verifiedAt).length;
+  if (unproved) return { text: `${phone} · ${unproved} SIM${unproved === 1 ? "" : "s"} not verified`, tone: "missed" };
   return { text: `${phone} · ${d.simLabel || "SIM"} · in sync`, tone: "tertiary" };
 }

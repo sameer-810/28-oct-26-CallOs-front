@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  AppState,
   Linking,
   PermissionsAndroid,
   Platform,
@@ -12,7 +13,8 @@ import { CallTracker, type Sim } from "@/modules/call-tracker";
 import { useAuthStore } from "@shared/store/useAuthStore";
 import { formatPhone } from "@shared/format";
 import { fonts, palette, radius, space } from "@shared/designSystem";
-import { Banner, Button, Card, Icon, Screen, Text } from "@shared/ui";
+import { Banner, Button, Card, Icon, Screen, Text, TextField } from "@shared/ui";
+import { provedSlots, type WorkSim } from "../syncRules";
 import { useDeviceStore } from "../deviceStore";
 import { reportDevice, syncNow } from "../syncEngine";
 import { registerBackgroundSync } from "../backgroundSync";
@@ -22,8 +24,8 @@ type Step = "permissions" | "sim" | "verify" | "battery" | "done";
 const STEPS: Step[] = ["permissions", "sim", "verify", "battery", "done"];
 const LABEL: Record<Step, string> = {
   permissions: "Permissions",
-  sim: "Work SIM",
-  verify: "Your number",
+  sim: "Work SIMs",
+  verify: "Verify",
   battery: "Stay on",
   done: "Done",
 };
@@ -60,13 +62,27 @@ function asks() {
       why: "To attach the recording your phone already makes. Your music and voice notes are never read.",
       required: false,
     },
+    {
+      key: "contacts",
+      perms: [P.READ_CONTACTS],
+      title: "Contacts",
+      why: "To show caller names on your call log.",
+      required: false,
+    },
+    {
+      key: "callPhone",
+      perms: [P.CALL_PHONE],
+      title: "Calls",
+      why: "To call back from the log in one tap, and to verify your SIM.",
+      required: false,
+    },
     ...(Number(Platform.Version) >= 33
       ? [
           {
             key: "notifications",
             perms: [P.POST_NOTIFICATIONS],
             title: "Notifications",
-            why: "To ask how a call went right after it ends.",
+            why: "Follow-up reminders, and asking how a call went right after it ends.",
             required: false,
           },
         ]
@@ -125,7 +141,9 @@ export default function DeviceSetupScreen() {
   const [step, setStep] = useState<Step>("permissions");
   const [granted, setGranted] = useState(() => CallTracker?.getPermissions());
   const [sims, setSims] = useState<Sim[]>([]);
-  const [slot, setSlot] = useState<number | null>(null);
+  const [picked, setPicked] = useState<number[]>([]);
+  const [numbers, setNumbers] = useState<Record<number, string>>({});
+  const work = useDeviceStore((s) => s.sims);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -143,28 +161,70 @@ export default function DeviceSetupScreen() {
     }
     const list = CallTracker?.getSims() ?? [];
     setSims(list);
-    if (list.length === 1) setSlot(list[0].slot);
+    // the SIM's own number when Android shares it; the account's number for a lone SIM
+    setNumbers(
+      Object.fromEntries(
+        list.map((x) => [x.slot, (x.number ?? (list.length === 1 ? user?.phone : "") ?? "").replace(/^\+91/, "")]),
+      ),
+    );
+    if (list.length === 1) setPicked([list[0].slot]);
     setStep("sim");
   }
 
-  const chosen = sims.find((s) => s.slot === slot);
-  const simDigits = chosen?.number
-    ? chosen.number.replace(/\D/g, "").slice(-10)
-    : null;
-  const myDigits = (user?.phone ?? "").replace(/\D/g, "").slice(-10);
-  const autoVerified = Boolean(simDigits && simDigits === myDigits);
+  const digits = (v: string | null | undefined) => (v ?? "").replace(/\D/g, "").slice(-10);
+  const numbersOk = picked.every((slot) => /^[6-9]\d{9}$/.test(digits(numbers[slot])));
 
-  function chooseSim() {
-    if (slot === null && sims.length > 0) return;
+  /** Saves the work SIMs. Android vouching for the typed number counts as proof; otherwise a test call does. */
+  function chooseSims() {
+    const now = Date.now();
+    const list: WorkSim[] = picked.map((slot) => {
+      const sim = sims.find((x) => x.slot === slot);
+      const typed = digits(numbers[slot]);
+      return {
+        slot,
+        carrier: sim?.carrier || sim?.displayName || `SIM ${slot + 1}`,
+        number: `+91${typed}`,
+        configuredAt: now,
+        verifiedAt: sim?.number && digits(sim.number) === typed ? now : null,
+      };
+    });
     set({
-      workSlot: slot,
-      simLabel: chosen
-        ? chosen.carrier || chosen.displayName || `SIM ${slot! + 1}`
-        : "Phone",
+      sims: list,
+      workSlot: list[0]?.slot ?? null,
+      simLabel: list[0]?.carrier ?? "Phone",
       simCount: Math.max(1, sims.length),
+      simConfirmed: list.length > 0 && list.every((x) => x.verifiedAt !== null),
+      simChanged: false,
+      // calls before this setup are the rep's own past; read from now on
+      watermark: now,
     });
     setStep("verify");
   }
+
+  /** Looks for the test call in the call log: any outgoing call on a SIM after setup proves it. */
+  async function checkProof() {
+    const current = useDeviceStore.getState().sims;
+    if (!CallTracker || current.length === 0) return;
+    const since = Math.min(...current.map((x) => x.configuredAt)) - 1000;
+    const rows = await CallTracker.readCallLog(since, 200).catch(() => []);
+    const proved = provedSlots(rows, current);
+    if (proved.length) {
+      const now = Date.now();
+      const next = current.map((x) => (proved.includes(x.slot) ? { ...x, verifiedAt: now } : x));
+      set({ sims: next, simConfirmed: next.every((x) => x.verifiedAt !== null) });
+    }
+  }
+
+  // back from the dialler: look for the test call at once
+  useEffect(() => {
+    if (step !== "verify") return;
+    const sub = AppState.addEventListener("change", (st) => {
+      if (st === "active") void checkProof();
+    });
+    return () => sub.remove();
+    // checkProof reads the store directly; only the step matters here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   async function finish() {
     setBusy(true);
@@ -266,101 +326,86 @@ export default function DeviceSetupScreen() {
         {step === "sim" ? (
           <>
             {sims.length ? (
-              sims.map((s) => (
-                <Pressable
-                  key={s.slot}
-                  accessibilityRole="radio"
-                  aria-checked={slot === s.slot}
-                  onPress={() => setSlot(s.slot)}
-                  style={[styles.sim, slot === s.slot && styles.simOn]}
-                >
-                  <View style={styles.simChip}>
-                    <Text style={styles.simSlot}>SIM {s.slot + 1}</Text>
+              sims.map((x) => {
+                const on = picked.includes(x.slot);
+                return (
+                  <View key={x.slot} style={[styles.sim, on && styles.simOn, styles.simColumn]}>
+                    <Pressable
+                      accessibilityRole="checkbox"
+                      aria-checked={on}
+                      onPress={() => setPicked((p) => (on ? p.filter((y) => y !== x.slot) : [...p, x.slot].sort()))}
+                      style={styles.simRow}
+                    >
+                      <View style={styles.simChip}>
+                        <Text style={styles.simSlot}>SIM {x.slot + 1}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text variant="bodyMedium">{x.carrier || x.displayName || "Unknown carrier"}</Text>
+                        <Text variant="mono" tone="tertiary">
+                          {x.number ? formatPhone(x.number) : "number hidden by the SIM"}
+                        </Text>
+                      </View>
+                      <View style={[styles.tick, on && styles.tickOn]}>
+                        {on ? <Icon name="check" size={13} color={palette.paper} /> : null}
+                      </View>
+                    </Pressable>
+                    {on ? (
+                      <TextField
+                        label={`Phone number on SIM ${x.slot + 1}`}
+                        prefix="+91"
+                        keyboardType="phone-pad"
+                        maxLength={14}
+                        value={numbers[x.slot] ?? ""}
+                        onChangeText={(v) => setNumbers((n) => ({ ...n, [x.slot]: v }))}
+                        error={numbers[x.slot] && !/^[6-9]\d{9}$/.test(digits(numbers[x.slot])) ? "Enter the 10-digit number" : undefined}
+                      />
+                    ) : null}
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text variant="bodyMedium">
-                      {s.carrier || s.displayName || "Unknown carrier"}
-                    </Text>
-                    <Text variant="mono" tone="tertiary">
-                      {s.number
-                        ? formatPhone(s.number)
-                        : "number hidden by the SIM"}
-                    </Text>
-                  </View>
-                  <View
-                    style={[styles.radio, slot === s.slot && styles.radioOn]}
-                  />
-                </Pressable>
-              ))
+                );
+              })
             ) : (
-              <Banner
-                tone="info"
-                message="Android didn’t list any SIMs. Calls will be tracked from the phone as a whole."
-              />
+              <Banner tone="info" message="No SIM card detected. Insert a SIM and try again." />
             )}
             <Text variant="caption" tone="tertiary">
-              Calls on any other SIM stay on your phone and are never read.
+              Tick every SIM you use for work. Calls on any other SIM, and calls from before today, stay on your phone and
+              are never read.
             </Text>
-            <Button
-              label="Use this SIM"
-              disabled={sims.length > 0 && slot === null}
-              onPress={chooseSim}
-            />
+            <Button label="Save SIMs" disabled={picked.length === 0 || !numbersOk} onPress={chooseSims} />
+            {sims.length === 0 ? (
+              <Button kind="ghost" label="Detect SIM cards again" onPress={() => setSims(CallTracker?.getSims() ?? [])} />
+            ) : null}
           </>
         ) : null}
 
         {step === "verify" ? (
           <>
-            <Card style={{ gap: space.sm }}>
-              <Text variant="caption" tone="tertiary">
-                Your account’s number
-              </Text>
-              <Text style={styles.bigNumber}>{formatPhone(user?.phone)}</Text>
-              {autoVerified ? (
-                <Banner
-                  tone="success"
-                  message="Your work SIM reports this same number. Verified."
-                />
-              ) : simDigits ? (
-                <Banner
-                  tone="error"
-                  message={`This SIM reports ${formatPhone(chosen?.number)}, not your account’s number. Pick the other SIM, or ask your manager to update your number.`}
-                />
-              ) : (
-                <Text variant="caption" tone="secondary">
-                  Your SIM doesn’t share its number with apps, so confirm it
-                  yourself.
-                </Text>
-              )}
-            </Card>
-            {simDigits && !autoVerified ? (
-              <Button
-                kind="ghost"
-                label="Pick another SIM"
-                onPress={() => setStep("sim")}
-              />
-            ) : (
-              <>
-                <Button
-                  label={
-                    autoVerified
-                      ? "Continue"
-                      : "Yes, that’s the number on this SIM"
-                  }
-                  onPress={() => {
-                    set({ simConfirmed: true });
-                    setStep("battery");
-                  }}
-                />
-                {!autoVerified ? (
-                  <Button
-                    kind="ghost"
-                    label="No — pick another SIM"
-                    onPress={() => setStep("sim")}
-                  />
-                ) : null}
-              </>
-            )}
+            <Text tone="secondary">
+              Make one call from each SIM, to anyone, even a number that doesn’t answer. When it shows up in your call log,
+              the SIM is verified.
+            </Text>
+            {work.map((w) => (
+              <Card key={w.slot} style={{ gap: space.sm }}>
+                <View style={styles.simRow}>
+                  <View style={styles.simChip}>
+                    <Text style={styles.simSlot}>SIM {w.slot + 1}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text variant="bodyMedium">{w.carrier}</Text>
+                    <Text variant="mono" tone="tertiary">
+                      {formatPhone(w.number)}
+                    </Text>
+                  </View>
+                  <Text variant="label" tone={w.verifiedAt ? "connected" : "missed"}>
+                    {w.verifiedAt ? "Verified" : "Not verified"}
+                  </Text>
+                </View>
+                {w.verifiedAt ? null : (
+                  <Button kind="ghost" size="sm" label={`Make a test call from SIM ${w.slot + 1}`} onPress={() => void Linking.openURL("tel:")} />
+                )}
+              </Card>
+            ))}
+            <Button kind="ghost" label="Check again" onPress={() => void checkProof()} />
+            <Button label={work.every((w) => w.verifiedAt) ? "Continue" : "Verify later and continue"} onPress={() => setStep("battery")} />
           </>
         ) : null}
 
@@ -375,13 +420,20 @@ export default function DeviceSetupScreen() {
             <Button
               kind="ghost"
               label="Open battery settings"
-              onPress={() =>
-                IntentLauncher.startActivityAsync(
-                  IntentLauncher.ActivityAction
-                    .IGNORE_BATTERY_OPTIMIZATION_SETTINGS,
-                ).catch(() => Linking.openSettings())
-              }
+              onPress={() => {
+                if (CallTracker?.openSetting("battery")) return;
+                IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.IGNORE_BATTERY_OPTIMIZATION_SETTINGS).catch(() =>
+                  Linking.openSettings(),
+                );
+              }}
             />
+            {CallTracker?.getHealth().autostartNeeded ? (
+              <Button kind="ghost" label="Open auto-start settings" onPress={() => CallTracker?.openSetting("autostart")} />
+            ) : null}
+            <Text variant="caption" tone="tertiary">
+              The rest (recording folder, display over other apps, WhatsApp calls) is under the shield at the top of the app,
+              whenever you’re ready.
+            </Text>
             <Button label="Done, continue" onPress={() => setStep("done")} />
           </>
         ) : null}
@@ -461,6 +513,8 @@ const styles = StyleSheet.create({
     backgroundColor: palette.card,
   },
   simOn: { borderColor: palette.ink, borderWidth: 2, padding: space.lg - 1 },
+  simColumn: { flexDirection: "column", alignItems: "stretch" },
+  simRow: { flexDirection: "row", alignItems: "center", gap: space.md },
   simChip: {
     width: 52,
     height: 40,

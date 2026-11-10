@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { callsApi } from "../api/callsApi";
+import { CallTracker } from "@/modules/call-tracker";
+import { deviceApi } from "@modules/device/api/deviceApi";
 import type { CallPatch } from "../types";
 
 export function useCalls(params: Record<string, string | number | undefined>, enabled = true) {
@@ -87,4 +89,25 @@ export function useCallFetchers() {
     }),
     [qc],
   );
+}
+
+/**
+ * A recording shared into the app ("Share → Ringwise") attached to a call by
+ * hand — for phones whose dialler saves recordings where the app can't find
+ * them. Copied out of the sharing app first, since its grant is temporary.
+ */
+export function useAttachRecording() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ callId, uri, name, mime }: { callId: string; uri: string; name: string; mime: string }) => {
+      const ext = (name.match(/\.([a-z0-9]{2,5})$/i)?.[1] ?? "m4a").toLowerCase();
+      const local = CallTracker ? await CallTracker.copyToCache(uri, `${callId}.${ext}`) : uri;
+      await deviceApi.uploadRecording(callId, { uri: local, name: `${callId}.${ext}`, type: mime.startsWith("audio/") ? mime : "audio/mp4" });
+      return callId;
+    },
+    onSuccess: (callId) => {
+      qc.invalidateQueries({ queryKey: ["call", callId] });
+      qc.invalidateQueries({ queryKey: ["calls"] });
+    },
+  });
 }

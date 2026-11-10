@@ -16,6 +16,8 @@ import { GLANCE_PERIODS, useGlance, useHighlights, useSummary } from "../hooks/u
 import { Glance, PipelineCard, TopSalespersonCard } from "../components/Highlights";
 import { FollowUps, Leaderboard, Opportunities, Panel } from "../components/Panels";
 import { SetupPanel } from "../components/SetupPanel";
+import { CallCounts } from "../components/CallCounts";
+import { PersonalCards } from "../components/PersonalCards";
 import { PhoneStatus } from "@modules/device/components/PhoneStatus";
 
 type Props = BottomTabScreenProps<AppTabParamList, "Home">;
@@ -135,6 +137,17 @@ export default function DashboardScreen({ navigation }: Props) {
               </View>
             </View>
           </Card>
+
+          <View style={{ marginTop: space.lg }}>
+            <CallCounts t={t} />
+          </View>
+          {s.personal ? (
+            <View style={{ marginTop: space.lg }}>
+              <Panel title={manager ? "Highlights" : "Your highlights"} caption="Who was called most, the longest call, and the averages.">
+                <PersonalCards p={s.personal} />
+              </Panel>
+            </View>
+          ) : null}
 
           <View style={[styles.grid, isWide && styles.gridWide]}>
             <View style={[styles.col, isWide && { flex: 1.6 }]}>

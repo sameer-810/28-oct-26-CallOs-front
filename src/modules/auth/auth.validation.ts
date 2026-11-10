@@ -45,6 +45,21 @@ export const changePasswordSchema = z
   .refine((v) => v.newPassword === v.confirm, { message: "The two new passwords don't match", path: ["confirm"] })
   .refine((v) => v.newPassword !== v.currentPassword, { message: "Choose a password you haven't used here", path: ["newPassword"] });
 
+export const forgotSchema = z.object({ email: z.string().trim().email("Enter the email on your account") });
+
+export const resetSchema = z
+  .object({
+    code: z.string().trim().regex(/^d{6}$/, "Enter the 6-digit code from the email"),
+    newPassword: password,
+    confirm: z.string(),
+  })
+  .refine((v) => v.newPassword === v.confirm, { message: "The two passwords don't match", path: ["confirm"] });
+
+export const deleteAccountSchema = z.object({ password: z.string().min(1, "Enter your password") });
+
+export type ForgotForm = z.infer<typeof forgotSchema>;
+export type ResetForm = z.infer<typeof resetSchema>;
+export type DeleteAccountForm = z.infer<typeof deleteAccountSchema>;
 export type ChangePasswordForm = z.infer<typeof changePasswordSchema>;
 export type SignInForm = z.infer<typeof signInSchema>;
 export type SignUpForm = z.infer<typeof signUpSchema>;

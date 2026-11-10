@@ -25,6 +25,10 @@ import { Icon, Text, useBreakpoint, type IconName, type PressState } from "@shar
 import { Brand } from "@shared/ui/BrandMark";
 import { ConnectCode } from "@modules/company/components/ConnectCode";
 import { navItemsFor } from "./navItems";
+import { PhoneTopBar } from "@modules/device/components/PhoneTopBar";
+import { TopInsetHandled } from "@shared/ui/Screen";
+import { SharedAudioSheet } from "@modules/calls/components/SharedAudioSheet";
+import { CallTracker } from "@/modules/call-tracker";
 import type { AppTabParamList } from "./types";
 
 const Tab = createBottomTabNavigator<AppTabParamList>();
@@ -139,10 +143,14 @@ export default function AppNavigator() {
   const expired = useAuthStore((s) => s.company?.subscription?.status === "expired");
   if (expired) return <PlanEnded />;
 
+  const phoneBar = Platform.OS === "android" && !isWide && Boolean(CallTracker);
   const routes = [...navItemsFor(role).map((i) => ({ name: i.name, label: i.label })), { name: "More" as const, label: "More" }];
 
   return (
     <View style={{ flex: 1 }}>
+      {/* the phone's own header: sync state and the setup checklist */}
+      {phoneBar ? <PhoneTopBar /> : null}
+      <TopInsetHandled.Provider value={phoneBar}>
     <Tab.Navigator
       tabBar={(props) => <NavBar {...props} />}
       screenOptions={{ headerShown: false, tabBarPosition: isWide ? "left" : "bottom" }}
@@ -151,8 +159,11 @@ export default function AppNavigator() {
         <Tab.Screen key={r.name} name={r.name} component={SCREENS[r.name]} options={{ title: `${r.label} · ${environment.appName}` }} />
       ))}
     </Tab.Navigator>
+      </TopInsetHandled.Provider>
       {/* the live browser call floats over every screen */}
       {Platform.OS === "web" ? <CallBar /> : null}
+      {/* a recording shared in from another app */}
+      {phoneBar ? <SharedAudioSheet /> : null}
     </View>
   );
 }

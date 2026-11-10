@@ -51,5 +51,20 @@ export const authApi = Object.freeze({
   changePassword: async (body: { currentPassword: string; newPassword: string }) =>
     (await apiClient.post<{ data: TokenPair }>("/auth/change-password", body)).data.data,
 
+  /** Emails a 6-digit code. Answers the same whether or not the email has an account. */
+  forgotPassword: async (email: string) => {
+    await apiClient.post("/auth/forgot-password", { email });
+  },
+
+  /** Sets a new password from the emailed code; every device is signed out. */
+  resetPassword: async (body: { email: string; code: string; newPassword: string }) => {
+    await apiClient.post("/auth/reset-password", body);
+  },
+
+  /** Deletes your own account (not the owner's). The password is asked again. */
+  deleteAccount: async (password: string) => {
+    await apiClient.delete("/auth/me", { data: { password } });
+  },
+
   me: async () => (await apiClient.get<{ data: { user: AuthUser; company: Company } }>("/auth/me")).data.data,
 });

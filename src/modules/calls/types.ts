@@ -25,6 +25,8 @@ export interface Call {
   followUpAt: string | null;
   followUpDone: boolean;
   followUpSource: "rep" | "ai" | null;
+  /** On one-row-per-client lists: calls with this client in the range. */
+  callsWithClient?: number;
   notes: string;
   /** 0–100 from the AI review, null until the call is transcribed. */
   score: number | null;

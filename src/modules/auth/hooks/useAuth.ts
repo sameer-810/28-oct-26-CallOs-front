@@ -34,6 +34,25 @@ export function useChangePassword() {
   });
 }
 
+export function useForgotPassword() {
+  return useMutation({ mutationFn: (email: string) => authApi.forgotPassword(email) });
+}
+
+export function useResetPassword() {
+  return useMutation({
+    mutationFn: (body: { email: string; code: string; newPassword: string }) => authApi.resetPassword(body),
+  });
+}
+
+/** Gone server-side; this device forgets the session too. */
+export function useDeleteAccount() {
+  const logout = useAuthStore((s) => s.logout);
+  return useMutation({
+    mutationFn: (password: string) => authApi.deleteAccount(password),
+    onSuccess: () => void logout(),
+  });
+}
+
 export function useCodePreview() {
   return useMutation({ mutationFn: (code: string) => authApi.previewCode(code) });
 }

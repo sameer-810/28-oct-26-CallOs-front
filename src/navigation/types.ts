@@ -5,6 +5,8 @@ export type AuthStackParamList = {
   SignUp: undefined;
   /** `code` pre-fills the boxes, from a shared join link. */
   Join: { code?: string } | undefined;
+  /** `email` pre-fills it, from the link in the reset email. */
+  ResetPassword: { email?: string } | undefined;
 };
 
 export type AppTabParamList = {

@@ -2,34 +2,44 @@ package expo.modules.calltracker
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.CallLog
+import android.provider.OpenableColumns
+import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
+import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
 
 /**
- * The phone side of call tracking: the SIMs, the call log, and where the
- * dialler left its recording. Everything is read-only; nothing here places,
- * blocks or records a call.
+ * The phone side of call tracking: the SIMs, the call log, where the dialler
+ * left its recording, WhatsApp calls, follow-up reminders, and the phone
+ * settings that keep it all running. Nothing here blocks or records a call;
+ * the only call it places is one the rep tapped.
  */
 class CallTrackerModule : Module() {
   private val context: Context
     get() = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+
+  private var folderPromise: Promise? = null
 
   private fun granted(permission: String) =
     ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
   override fun definition() = ModuleDefinition {
     Name("CallTracker")
+
+    Events("onSharedAudio")
 
     Function("getDeviceInfo") {
       mapOf(
@@ -48,8 +58,27 @@ class CallTrackerModule : Module() {
         "phoneNumbers" to granted(Manifest.permission.READ_PHONE_NUMBERS),
         "recordings" to if (Build.VERSION.SDK_INT >= 33) granted(Manifest.permission.READ_MEDIA_AUDIO)
           else granted(Manifest.permission.READ_EXTERNAL_STORAGE),
-        "notifications" to if (Build.VERSION.SDK_INT >= 33) granted(Manifest.permission.POST_NOTIFICATIONS) else true
+        "notifications" to if (Build.VERSION.SDK_INT >= 33) granted(Manifest.permission.POST_NOTIFICATIONS) else true,
+        "contacts" to granted(Manifest.permission.READ_CONTACTS),
+        "callPhone" to granted(Manifest.permission.CALL_PHONE)
       )
+    }
+
+    /** The settings that aren't runtime permissions, and the battery. */
+    Function("getHealth") {
+      mapOf(
+        "battery" to PhoneChecks.batteryUnrestricted(context),
+        "overlay" to PhoneChecks.overlay(context),
+        "whatsapp" to PhoneChecks.notificationListener(context),
+        "autostartNeeded" to PhoneChecks.autostartNeeded(),
+        "recordingFolder" to RecordingFolder.readable(context),
+        "power" to PhoneChecks.battery(context)
+      )
+    }
+
+    /** Opens the system screen for one setting: battery, overlay, whatsapp, autostart, notifications, defaultDialer. */
+    Function("openSetting") { what: String ->
+      PhoneChecks.open(context, what)
     }
 
     /** Active SIMs. The number is often blank: many Indian SIMs don't expose it to apps. */
@@ -64,9 +93,13 @@ class CallTrackerModule : Module() {
       readCallLog(sinceMs.toLong(), limit.coerceIn(1, 2000))
     }
 
-    /** The recording the dialler saved for this call, or null when there isn't a confident match. */
+    /**
+     * The recording the dialler saved for this call, or null when there isn't a
+     * confident match: the media index first, then the folder the rep picked.
+     */
     AsyncFunction("findRecording") { number: String, startedAtMs: Double, durationSec: Int, contactName: String? ->
       RecordingFinder(context).find(number, startedAtMs.toLong(), durationSec, contactName)
+        ?: RecordingFolder.find(context, number, startedAtMs.toLong(), durationSec, contactName)
     }
 
     /** Copies a content:// recording into the app's cache so it can be uploaded as a file. */
@@ -80,6 +113,48 @@ class CallTrackerModule : Module() {
       "file://${out.absolutePath}"
     }
 
+    /** The folder the rep picked for recordings, or null. */
+    Function("getRecordingFolder") {
+      RecordingFolder.saved(context)?.let {
+        mapOf("uri" to it, "label" to RecordingFolder.label(it), "readable" to RecordingFolder.readable(context))
+      }
+    }
+
+    /** The system folder picker; resolves the folder chosen, or null if the rep backed out. */
+    AsyncFunction("pickRecordingFolder") { promise: Promise ->
+      val activity = appContext.currentActivity ?: throw Exceptions.MissingActivity()
+      folderPromise?.resolve(null)
+      folderPromise = promise
+      val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(
+        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+      )
+      activity.startActivityForResult(intent, PICK_FOLDER)
+    }
+
+    OnActivityResult { _, payload ->
+      if (payload.requestCode != PICK_FOLDER) return@OnActivityResult
+      val promise = folderPromise ?: return@OnActivityResult
+      folderPromise = null
+      val uri = payload.data?.data
+      if (payload.resultCode != Activity.RESULT_OK || uri == null) {
+        promise.resolve(null)
+        return@OnActivityResult
+      }
+      try {
+        context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      } catch (_: SecurityException) {
+      }
+      // one folder is kept; let go of the old one's grant
+      RecordingFolder.saved(context)?.takeIf { it != uri.toString() }?.let { old ->
+        try {
+          context.contentResolver.releasePersistableUriPermission(Uri.parse(old), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: Exception) {
+        }
+      }
+      RecordingFolder.save(context, uri.toString())
+      promise.resolve(mapOf("uri" to uri.toString(), "label" to RecordingFolder.label(uri.toString()), "readable" to true))
+    }
+
     /** Whether a call ending should prompt for a status; mirrors the company setting. */
     Function("setAfterCallPrompt") { enabled: Boolean ->
       Prefs.of(context).edit().putBoolean(Prefs.PROMPT_ENABLED, enabled).apply()
@@ -88,6 +163,100 @@ class CallTrackerModule : Module() {
     /** When the last call ended, as the receiver saw it (0 if never). */
     Function("lastCallEndedAt") {
       Prefs.of(context).getLong(Prefs.LAST_ENDED_AT, 0L).toDouble()
+    }
+
+    /** WhatsApp calls finished since the last send, with the number found in contacts when WhatsApp showed a name. */
+    Function("pendingWhatsAppCalls") {
+      WhatsAppCallListener.pending(Prefs.of(context)).map { call ->
+        val title = (call["title"] as? String).orEmpty()
+        val looksLikeNumber = title.count(Char::isDigit) >= 7 && title.all { it.isDigit() || it in "+ -()" }
+        val number = if (looksLikeNumber) title.filter { it.isDigit() || it == '+' } else Contacts.numberFor(context, title)
+        call + mapOf("number" to number, "name" to if (looksLikeNumber) "" else title)
+      }
+    }
+
+    Function("ackWhatsAppCalls") { ids: List<String> ->
+      WhatsAppCallListener.ack(Prefs.of(context), ids)
+    }
+
+    /** Replaces every armed follow-up reminder with this list; returns how many are armed. */
+    Function("setFollowups") { list: List<Map<String, Any?>> ->
+      FollowupAlarms.replaceAll(
+        context,
+        list.mapNotNull { m ->
+          val id = m["id"] as? String ?: return@mapNotNull null
+          val at = (m["at"] as? Number)?.toLong() ?: return@mapNotNull null
+          FollowupAlarms.Followup(
+            id, at, (m["title"] as? String).orEmpty(), (m["text"] as? String).orEmpty(), (m["phone"] as? String).orEmpty()
+          )
+        }
+      )
+      FollowupAlarms.count(context)
+    }
+
+    /**
+     * Calls a number. With the call permission it rings straight out — on the
+     * given SIM, which is how a SIM proves its number — otherwise it opens the
+     * dialler with the number typed in. Returns whether it rang out directly.
+     */
+    Function("placeCall") { number: String, simSlot: Int? ->
+      val uri = Uri.fromParts("tel", number, null)
+      val direct = granted(Manifest.permission.CALL_PHONE)
+      val intent = Intent(if (direct) Intent.ACTION_CALL else Intent.ACTION_DIAL, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+      if (direct && simSlot != null) {
+        handleForSlot(simSlot)?.let { intent.putExtra(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
+      }
+      context.startActivity(intent)
+      direct
+    }
+
+    /** An audio file shared into the app ("Share → Ringwise"), once; null when there is none. */
+    Function("takeSharedAudio") {
+      val activity = appContext.currentActivity ?: return@Function null
+      val shared = sharedAudio(activity.intent) ?: return@Function null
+      // read once: coming back to the app mustn't offer it again
+      activity.intent = Intent(activity.intent).setAction(Intent.ACTION_MAIN).apply { removeExtra(Intent.EXTRA_STREAM) }
+      shared
+    }
+
+    OnNewIntent { intent ->
+      sharedAudio(intent)?.let { sendEvent("onSharedAudio", it) }
+    }
+  }
+
+  private fun sharedAudio(intent: Intent?): Map<String, Any?>? {
+    if (intent?.action != Intent.ACTION_SEND) return null
+    val type = intent.type.orEmpty()
+    if (!type.startsWith("audio/") && type != "application/octet-stream") return null
+    val uri: Uri = (
+      if (Build.VERSION.SDK_INT >= 33) intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+      else @Suppress("DEPRECATION") (intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri)
+      ) ?: return null
+    var name = ""
+    var size = 0L
+    try {
+      context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
+        if (c.moveToFirst()) {
+          name = c.getString(0).orEmpty()
+          size = c.getLong(1)
+        }
+      }
+    } catch (_: Exception) {
+    }
+    return mapOf("uri" to uri.toString(), "name" to name.ifBlank { "recording" }, "mime" to type, "bytes" to size.toDouble())
+  }
+
+  @SuppressLint("MissingPermission")
+  private fun handleForSlot(slot: Int): PhoneAccountHandle? {
+    val sub = sims().firstOrNull { it["slot"] == slot }?.get("subscriptionId") as? Int ?: return null
+    val telecom = context.getSystemService(TelecomManager::class.java) ?: return null
+    val tm = context.getSystemService(TelephonyManager::class.java)
+    return try {
+      telecom.callCapablePhoneAccounts.firstOrNull { handle ->
+        if (Build.VERSION.SDK_INT >= 30) tm?.getSubscriptionId(handle) == sub else handle.id == sub.toString()
+      }
+    } catch (_: SecurityException) {
+      null
     }
   }
 
@@ -163,13 +332,15 @@ class CallTrackerModule : Module() {
     )?.use { c ->
       while (c.moveToNext() && rows.size < limit) {
         val account = c.getString(6)
+        val number = c.getString(1).orEmpty()
         rows += mapOf(
           "id" to c.getLong(0).toString(),
-          "number" to c.getString(1).orEmpty(),
+          "number" to number,
           "type" to c.getInt(2),
           "date" to c.getLong(3).toDouble(),
           "duration" to c.getLong(4).toInt(),
-          "name" to c.getString(5).orEmpty(),
+          // the dialler caches a name only if the contact existed at call time
+          "name" to (c.getString(5)?.takeIf { it.isNotBlank() } ?: Contacts.nameFor(context, number).orEmpty()),
           "phoneAccountId" to account.orEmpty(),
           // one SIM: every call is on it, whatever the account id says
           "simSlot" to (account?.let { slots[it] } ?: if (single) slots.values.firstOrNull() ?: 0 else null)
@@ -179,6 +350,8 @@ class CallTrackerModule : Module() {
     return rows
   }
 }
+
+private const val PICK_FOLDER = 4121
 
 class MissingPermission(name: String) :
   expo.modules.kotlin.exception.CodedException("ERR_PERMISSION", "Permission $name is not granted", null)

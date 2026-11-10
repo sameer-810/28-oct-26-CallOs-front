@@ -10,6 +10,8 @@ export interface Totals {
   unanswered: number;
   connected: number;
   talkSec: number;
+  incomingTalkSec: number;
+  outgoingTalkSec: number;
   avgConnectedSec: number;
   workCalls: number;
   workTalkSec: number;
@@ -19,9 +21,19 @@ export interface Totals {
   notPickedUp: number;
 }
 
+/** The phone's Analytics cards (callos): who you called most, your longest call, your averages. */
+export interface Personal {
+  topCaller: { phone: string; name: string; calls: number } | null;
+  longestCall: { phone: string; name: string; durationSec: number; startedAt: string } | null;
+  dailyAvgCalls: number;
+  /** Talk time over every call in the range, as the callos card counts it. */
+  avgDurationSec: number;
+}
+
 export interface Summary {
   range: { from: string; to: string; name: string };
   totals: Totals;
+  personal: Personal;
   previous: { total: number; connected: number; talkSec: number; missed: number };
   byDay: { day: string; total: number; connected: number; missed: number; talkSec: number }[];
   byHour: { hour: number; total: number; connected: number }[];

@@ -12,6 +12,8 @@ import type { AppTabParamList } from "@navigation/types";
 import { useUpdateMe } from "@modules/team/hooks/useTeam";
 import { useChangePassword } from "@modules/auth/hooks/useAuth";
 import { changePasswordSchema, type ChangePasswordForm } from "@modules/auth/auth.validation";
+import { DeleteAccount } from "../components/DeleteAccount";
+import { PhoneSettings } from "@modules/device/components/PhoneSettings";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -149,9 +151,12 @@ export default function AccountScreen({ navigation }: BottomTabScreenProps<AppTa
         ) : null}
       </Section>
 
+      <PhoneSettings />
+
       <View style={styles.section}>
         <Button kind="ghost" label="Sign out" onPress={() => setConfirmOut(true)} />
       </View>
+      {isOwner ? null : <DeleteAccount />}
 
       <ConfirmDialog
         visible={confirmRotate}

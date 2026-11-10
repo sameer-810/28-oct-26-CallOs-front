@@ -5,8 +5,22 @@ import { apiErrorMessage } from "@api/apiClient";
 import { getDeviceId } from "@api/deviceId";
 import { useAuthStore } from "@shared/store/useAuthStore";
 import { useDeviceStore, type PendingRecording } from "./deviceStore";
-import { buildBatch, readFrom, wantsRecording, MAX_RECORDING_ATTEMPTS, type ApiCall } from "./syncRules";
+import {
+  buildBatch,
+  buildSimBatch,
+  followupAlarms,
+  provedSlots,
+  readFrom,
+  simsChanged,
+  wantsRecording,
+  whatsAppToApiCall,
+  MAX_RECORDING_ATTEMPTS,
+  type ApiCall,
+} from "./syncRules";
+import { phoneChecks } from "./phoneChecks";
+import { logSync } from "./syncLog";
 import { deviceApi } from "./api/deviceApi";
+import { callsApi } from "@modules/calls/api/callsApi";
 import type { SyncResult } from "./types";
 
 
@@ -29,6 +43,8 @@ export async function reportDevice() {
   const info = CallTracker.getDeviceInfo();
   const p = CallTracker.getPermissions();
   const sim = d.workSlot !== null ? CallTracker.getSims().find((s) => s.slot === d.workSlot) : undefined;
+  const health = CallTracker.getHealth();
+  const checks = phoneChecks(p, health, d);
   await deviceApi.report({
     deviceId: await getDeviceId(),
     brand: info.brand,
@@ -40,7 +56,36 @@ export async function reportDevice() {
       ? { simSlot: d.workSlot, simLabel: d.simLabel, simNumber: sim?.number ?? null, simConfirmed: d.simConfirmed }
       : {}),
     ...(d.recordingFolder ? { recordingFolder: d.recordingFolder } : {}),
+    ...(d.sims.length
+      ? { sims: d.sims.map((s) => ({ slot: s.slot, carrier: s.carrier, number: s.number || null, verified: s.verifiedAt !== null })) }
+      : {}),
+    checks: checks.report,
+    battery: { level: health.power.level, charging: health.power.charging, powerSave: health.power.powerSave },
   });
+}
+
+/** WhatsApp calls the listener saw since last time; acknowledged once the server has them. */
+async function sendWhatsAppCalls(deviceId: string) {
+  if (!CallTracker) return 0;
+  const seen = CallTracker.pendingWhatsAppCalls();
+  if (seen.length === 0) return 0;
+  const calls = seen.map(whatsAppToApiCall).filter((c): c is NonNullable<typeof c> => c !== null);
+  let inserted = 0;
+  if (calls.length) inserted = (await deviceApi.sendCalls(deviceId, calls)).inserted;
+  // the ones with no number can't ever be sent: let them go too
+  CallTracker.ackWhatsAppCalls(seen.map((c) => c.id));
+  logSync(`whatsapp: ${seen.length} seen, ${calls.length} sent, ${inserted} new`);
+  return inserted;
+}
+
+/** The rep's follow-ups, armed as phone alarms so they ring with the app closed. */
+async function armFollowups() {
+  if (!CallTracker) return;
+  const me = useAuthStore.getState().user?.id;
+  if (!me) return;
+  const { items } = await callsApi.followUps("all");
+  const n = CallTracker.setFollowups(followupAlarms(items, me, Date.now()));
+  useDeviceStore.getState().set({ alarms: n });
 }
 
 async function uploadRecording(p: PendingRecording): Promise<"uploaded" | "not-found" | "failed"> {
@@ -51,7 +96,7 @@ async function uploadRecording(p: PendingRecording): Promise<"uploaded" | "not-f
   const local = await CallTracker.copyToCache(found.uri, `${p.callId}.${ext}`);
   try {
     await deviceApi.uploadRecording(p.callId, { uri: local, name: `${p.callId}.${ext}`, type: found.mime || "audio/mp4" });
-    if (found.folder) useDeviceStore.getState().set({ recordingFolder: found.folder });
+    if (found.folder) useDeviceStore.getState().set({ recordingFolder: found.folder, recordingFolderSeen: true });
     return "uploaded";
   } catch {
     return "failed";
@@ -74,8 +119,24 @@ async function run(): Promise<SyncResult> {
   }
 
   const now = Date.now();
+  // a swapped SIM: stop reading until setup is done again, so personal calls don't leak in
+  const present = CallTracker.getSims();
+  if (dev.sims.length && simsChanged(dev.sims, present)) {
+    dev.set({ simChanged: true, lastError: "Your SIM changed. Set up your SIMs again to keep tracking calls." });
+    logSync("sim: a set-up SIM is missing; sync paused");
+    await reportDevice().catch(() => {});
+    return { ran: false, sent: 0, inserted: 0, recordings: 0, reason: "sim-changed" };
+  }
+
   const rows = await CallTracker.readCallLog(readFrom(dev.watermark, now), 2000);
-  const batch = buildBatch(rows, dev.workSlot, dev.simCount, dev.simLabel);
+  const proved = dev.sims.length ? provedSlots(rows, dev.sims) : [];
+  if (proved.length) {
+    dev.set({ sims: dev.sims.map((s) => (proved.includes(s.slot) ? { ...s, verifiedAt: now } : s)) });
+    logSync(`sim: slot ${proved.join(",")} proved by a test call`);
+  }
+  const batch = dev.sims.length
+    ? buildSimBatch(rows, useDeviceStore.getState().sims, present.length)
+    : buildBatch(rows, dev.workSlot, dev.simCount, dev.simLabel);
   const byClientId = new Map<string, ApiCall>(batch.map((c) => [c.clientCallId, c]));
   const deviceId = await getDeviceId();
 
@@ -115,7 +176,14 @@ async function run(): Promise<SyncResult> {
     .filter((p) => p.attempts < MAX_RECORDING_ATTEMPTS && now - new Date(p.startedAt).getTime() < 7 * 86_400_000)
     .slice(-PENDING_CAP);
 
+  inserted += await sendWhatsAppCalls(deviceId).catch((e) => {
+    logSync(`whatsapp: failed ${apiErrorMessage(e, "error")}`);
+    return 0;
+  });
+  await armFollowups().catch(() => logSync("follow-ups: could not arm reminders"));
+
   const newest = rows.reduce((m, r) => Math.max(m, r.date), dev.watermark ?? 0);
+  logSync(`sync: ${rows.length} rows read, ${batch.length} sent, ${inserted} new, ${recordings} recordings, ${keep.length} waiting`);
   useDeviceStore.getState().set({
     watermark: newest || dev.watermark,
     pending: keep,
@@ -135,7 +203,9 @@ export function syncNow(): Promise<SyncResult> {
   if (running) return running;
   running = run()
     .catch((err) => {
-      useDeviceStore.getState().set({ lastError: apiErrorMessage(err, "Sync failed. It will try again shortly.") });
+      const message = apiErrorMessage(err, "Sync failed. It will try again shortly.");
+      logSync(`sync: failed — ${message}`);
+      useDeviceStore.getState().set({ lastError: message });
       return { ran: false, sent: 0, inserted: 0, recordings: 0, reason: "error" };
     })
     .finally(() => {

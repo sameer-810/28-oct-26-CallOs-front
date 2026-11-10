@@ -15,17 +15,39 @@ import { useCallFetchers, useCalls } from "../hooks/useCalls";
 import { CallRow } from "../components/CallRow";
 import { CallDetail } from "../components/CallDetail";
 import { CallHistory } from "../components/CallHistory";
+import { DialpadSheet } from "../components/DialpadSheet";
+import { Pressable } from "react-native";
+import { Icon } from "@shared/ui";
 import { useCallsView } from "../callsView";
 import { SOURCE_LABEL, type Call, type CallSource, type CallType } from "../types";
 
-const TYPES: { id: CallType | "all"; label: string }[] = [
+/** The callos log's tabs: call types, plus the client-level ones a rep works from. */
+type TypeFilter = CallType | "all" | "follow_up" | "never_attended" | "not_picked" | "unique";
+const TYPES: { id: TypeFilter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "outgoing", label: "Outgoing" },
-  { id: "incoming", label: "Incoming" },
+  { id: "follow_up", label: "Follow-up" },
+  { id: "incoming", label: "In" },
+  { id: "outgoing", label: "Out" },
   { id: "missed", label: "Missed" },
   { id: "rejected", label: "Rejected" },
   { id: "blocked", label: "Blocked" },
+  { id: "never_attended", label: "Never attended" },
+  { id: "not_picked", label: "Not picked up" },
+  { id: "unique", label: "Unique clients" },
 ];
+const TYPE_PARAMS: Record<Exclude<TypeFilter, "all">, Record<string, string>> = {
+  incoming: { types: "incoming" },
+  outgoing: { types: "outgoing" },
+  missed: { types: "missed" },
+  rejected: { types: "rejected" },
+  blocked: { types: "blocked" },
+  follow_up: { followUp: "true" },
+  never_attended: { outcome: "never_attended" },
+  not_picked: { outcome: "not_picked" },
+  unique: { group: "unique" },
+};
+/** Every call, one row per client newest first, or the clients called most. */
+type Grouping = "all" | "recent" | "frequent";
 const SOURCES: CallSource[] = ["phone", "whatsapp", "cloud"];
 /** Recorded calls, and among them the ones still waiting for a transcript. */
 type RecordingFilter = "" | "recorded" | "untranscribed";
@@ -39,7 +61,9 @@ export default function CallsScreen({ route, navigation }: Props) {
   const role = useAuthStore((s) => s.user?.role);
   const { isWide } = useBreakpoint();
   const filters = useFilterParams();
-  const [type, setType] = useState<CallType | "all">("all");
+  const [type, setType] = useState<TypeFilter>("all");
+  const [grouping, setGrouping] = useState<Grouping>("all");
+  const [dialpad, setDialpad] = useState(false);
   const [status, setStatus] = useState<string>("");
   const [review, setReview] = useState<"" | "reviewed" | "worst">("");
   const [source, setSource] = useState<CallSource | "">("");
@@ -60,7 +84,8 @@ export default function CallsScreen({ route, navigation }: Props) {
 
   const base = {
     ...filters,
-    ...(type !== "all" ? { types: type } : {}),
+    ...(type !== "all" ? TYPE_PARAMS[type] : {}),
+    ...(grouping === "recent" ? { group: "unique" } : grouping === "frequent" ? { group: "frequent" } : {}),
     ...(source ? { sources: source } : {}),
     ...(recording === "recorded" ? { recorded: "true" } : recording === "untranscribed" ? { recorded: "true", transcript: "none,failed" } : {}),
     ...(status ? { leadStatus: status } : {}),
@@ -140,6 +165,7 @@ export default function CallsScreen({ route, navigation }: Props) {
   const total = calls.data?.total ?? 0;
 
   return (
+    <View style={styles.page}>
     <Screen>
       <View style={styles.head}>
         <View>
@@ -204,6 +230,21 @@ export default function CallsScreen({ route, navigation }: Props) {
             <Chip key="untranscribed" label="Not transcribed yet" selected={recording === "untranscribed"} onPress={() => setRecording(recording === "untranscribed" ? "" : "untranscribed")} />,
           ];
           // a phone gets one sideways row each, so the calls start above the fold
+          const groupings = (
+            <Segmented
+              label="Show"
+              value={grouping}
+              onChange={(g) => {
+                setGrouping(g);
+                setLimit(PAGE);
+              }}
+              items={[
+                { id: "all", label: "All" },
+                { id: "recent", label: "Recent" },
+                { id: "frequent", label: "Most frequent" },
+              ]}
+            />
+          );
           return isWide ? (
             <>
               <View style={styles.chipRow}>
@@ -212,9 +253,11 @@ export default function CallsScreen({ route, navigation }: Props) {
                 {statuses}
               </View>
               <View style={styles.chipRow}>{sources}</View>
+              {groupings}
             </>
           ) : (
             <>
+              {groupings}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
                 {types}
               </ScrollView>
@@ -244,7 +287,7 @@ export default function CallsScreen({ route, navigation }: Props) {
         </Text>
       </View>
 
-      <Card padded={false}>
+      <Card padded={false} style={isWide ? undefined : styles.bare}>
         {calls.isLoading ? (
           <View style={styles.center}>
             <ActivityIndicator color={palette.ink} />
@@ -253,11 +296,29 @@ export default function CallsScreen({ route, navigation }: Props) {
           <EmptyState title="Couldn't load calls" body={apiErrorMessage(calls.error)} action={<Button size="sm" kind="ghost" label="Try again" onPress={() => calls.refetch()} />} />
         ) : !total ? (
           <EmptyState
-            title={search || type !== "all" || status || source || recording ? "No calls match" : "No calls in this period"}
+            title={search || type !== "all" || status || source || recording || grouping !== "all" ? "No calls match this filter" : "No calls in this period"}
             body={
               search || type !== "all" || status || source || recording
                 ? "Try a wider date range or clear a filter."
                 : "Calls appear here a minute after they end, from every phone in your team."
+            }
+            action={
+              search || type !== "all" || status || source || recording || grouping !== "all" ? (
+                <Button
+                  size="sm"
+                  kind="ghost"
+                  label="Clear filters"
+                  onPress={() => {
+                    setSearch("");
+                    setType("all");
+                    setStatus("");
+                    setSource("");
+                    setRecording("");
+                    setReview("");
+                    setGrouping("all");
+                  }}
+                />
+              ) : undefined
             }
           />
         ) : (
@@ -327,6 +388,20 @@ export default function CallsScreen({ route, navigation }: Props) {
         />
       ) : null}
     </Screen>
+      {/* the phone's dialpad, as in its own call log */}
+      {!isWide ? (
+        <Pressable
+          onPress={() => setDialpad(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Open dialpad"
+          style={({ pressed }) => [styles.fab, pressed && { opacity: 0.85 }]}
+        >
+          <Icon name="dialpad" size={24} color={palette.paper} />
+        </Pressable>
+      ) : null}
+      <DialpadSheet visible={dialpad} onClose={() => setDialpad(false)} />
+
+    </View>
   );
 }
 
@@ -339,6 +414,20 @@ const styles = StyleSheet.create({
   chipScroll: { gap: 6, paddingRight: space.lg },
   sep: { width: 1, height: 22, backgroundColor: palette.rule, marginHorizontal: 4 },
   countRow: { marginTop: space.lg, marginBottom: space.sm },
+  page: { flex: 1 },
+  bare: { backgroundColor: "transparent", borderWidth: 0 },
+  fab: {
+    position: "absolute",
+    right: space.lg,
+    bottom: space.lg,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: palette.ink,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 6,
+  },
   center: { padding: space.xxl, alignItems: "center" },
   dayHead: {
     flexDirection: "row",

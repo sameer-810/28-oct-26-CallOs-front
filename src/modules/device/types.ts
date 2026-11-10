@@ -1,3 +1,14 @@
+export type CheckName =
+  | "callLog"
+  | "recordings"
+  | "contacts"
+  | "notifications"
+  | "battery"
+  | "overlay"
+  | "autostart"
+  | "recordingFolder"
+  | "whatsapp";
+
 /** A rep's phone as the manager's Team screen sees it. */
 export interface DeviceInfo {
   id: string;
@@ -10,6 +21,10 @@ export interface DeviceInfo {
   simVerified: boolean;
   permissions: { callLog: boolean; phoneState: boolean; recordings: boolean; notifications: boolean };
   recordingFolder: string;
+  sims: { slot: number; carrier: string; number: string | null; verifiedAt: string | null }[];
+  checks: Record<CheckName, boolean> | null;
+  battery: { level: number | null; charging: boolean | null; powerSave: boolean | null; at: string } | null;
+  appVersion: string;
   lastSyncAt: string | null;
   lastCallAt: string | null;
 }
@@ -27,6 +42,9 @@ export interface DeviceReport {
   simNumber?: string | null;
   simConfirmed?: boolean;
   recordingFolder?: string;
+  sims?: { slot: number; carrier: string; number: string | null; verified: boolean }[];
+  checks?: Record<CheckName, boolean>;
+  battery?: { level: number | null; charging: boolean | null; powerSave: boolean | null };
 }
 
 /** What the server made of one batch: each call's id, and whether it still wants the recording. */

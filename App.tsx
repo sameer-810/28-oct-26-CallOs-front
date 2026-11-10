@@ -28,6 +28,7 @@ const linking: LinkingOptions<RootParamList> = {
           SignIn: "sign-in",
           SignUp: "sign-up",
           Join: "join/:code?",
+          ResetPassword: "reset-password",
         },
       },
       DeviceSetup: "setup",

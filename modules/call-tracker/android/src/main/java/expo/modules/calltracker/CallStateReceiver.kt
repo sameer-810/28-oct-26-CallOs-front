@@ -25,11 +25,11 @@ object Prefs {
 }
 
 /**
- * Watches the phone's call state. When a call ends, it posts a quiet
- * notification — "How did the call go?" — that opens the app straight on the
- * after-call sheet. A notification, not a pop-up: Android 10+ doesn't let a
- * background app put a window over the screen, and a prompt that ambushes the
- * rep mid-dial is one they learn to dismiss unread.
+ * Watches the phone's call state. When an answered call ends, the app opens
+ * on the after-call sheet — status, notes, follow-up — while the call is
+ * fresh. Android 10+ only lets a background app open a screen if the rep
+ * allowed "Display over other apps"; without that, a quiet notification asks
+ * instead.
  */
 class CallStateReceiver : BroadcastReceiver() {
   override fun onReceive(context: Context, intent: Intent) {
@@ -43,7 +43,22 @@ class CallStateReceiver : BroadcastReceiver() {
     // RINGING → IDLE is a missed call, which shows up in the call log as such
     if (state == TelephonyManager.EXTRA_STATE_IDLE && previous == TelephonyManager.EXTRA_STATE_OFFHOOK) {
       prefs.edit().putLong(Prefs.LAST_ENDED_AT, System.currentTimeMillis()).apply()
-      if (prefs.getBoolean(Prefs.PROMPT_ENABLED, true)) notify(context)
+      if (prefs.getBoolean(Prefs.PROMPT_ENABLED, true) && !openSheet(context)) notify(context)
+    }
+  }
+
+  private fun afterCallIntent(context: Context) =
+    Intent(Intent.ACTION_VIEW, Uri.parse("callos://after-call")).setPackage(context.packageName)
+      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+
+  /** Straight to the sheet, when the phone allows it. */
+  private fun openSheet(context: Context): Boolean {
+    if (!PhoneChecks.overlay(context)) return false
+    return try {
+      context.startActivity(afterCallIntent(context))
+      true
+    } catch (_: Exception) {
+      false
     }
   }
 
@@ -62,8 +77,7 @@ class CallStateReceiver : BroadcastReceiver() {
       )
     }
 
-    val open = Intent(Intent.ACTION_VIEW, Uri.parse("callos://after-call")).setPackage(context.packageName)
-      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    val open = afterCallIntent(context)
     val pending = PendingIntent.getActivity(
       context, 0, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )

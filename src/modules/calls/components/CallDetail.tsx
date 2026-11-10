@@ -16,6 +16,9 @@ import { useNow } from "@shared/hooks/useNow";
 import { ReviewPanel } from "@modules/coaching/components/ReviewPanel";
 import { useComments } from "@modules/coaching/hooks/useComments";
 import { WhatsAppComposer } from "@modules/playbook/components/WhatsAppComposer";
+import { FollowUpPicker } from "./FollowUpPicker";
+import { callNumber, smsNumber } from "./QuickActions";
+import { Platform } from "react-native";
 
 /** Follow-up presets on the device's clock — the rep's own day — as reps actually promise them. */
 function presets(now = new Date()) {
@@ -104,6 +107,15 @@ export function CallDetail({
 
       {canCall ? (
         <Button label={`Call ${current.contactName || formatPhone(current.phone)}`} onPress={() => dial(current.phone, current.contactName)} />
+      ) : Platform.OS !== "web" ? (
+        <View style={styles.inline}>
+          <View style={{ flex: 1 }}>
+            <Button label="Call" onPress={() => void callNumber(current.phone)} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button kind="ghost" label="Message" onPress={() => void smsNumber(current.phone)} />
+          </View>
+        </View>
       ) : null}
 
       <View style={styles.facts}>
@@ -178,6 +190,7 @@ export function CallDetail({
             <Chip key={p.label} label={p.label} onPress={() => save({ followUpAt: p.at.toISOString() })} />
           ))}
         </View>
+        <FollowUpPicker busy={update.isPending} onPick={(at) => save({ followUpAt: at.toISOString() })} />
         {fu ? (
           <View style={styles.inline}>
             <Button
@@ -194,9 +207,14 @@ export function CallDetail({
       <WhatsAppComposer phone={current.phone} contactName={current.contactName} followUpAt={current.followUpAt} tz={tz} />
 
       <View style={styles.block}>
-        <Text variant="label" nativeID="notes-label">
-          Notes
-        </Text>
+        <View style={styles.rowBetween}>
+          <Text variant="label" nativeID="notes-label">
+            Notes
+          </Text>
+          <Text variant="mono" tone="tertiary" style={{ fontSize: 11 }}>
+            {notes.length}/2000
+          </Text>
+        </View>
         <TextInput
           value={notes}
           onChangeText={setNotes}
