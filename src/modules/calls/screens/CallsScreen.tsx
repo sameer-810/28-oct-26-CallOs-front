@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import type { BottomTabScreenProps } from "@react-navigation/bottom-tabs";
 import type { AppTabParamList } from "@navigation/types";
 import { syncNow } from "@modules/device/syncEngine";
+import { CallTracker } from "@/modules/call-tracker";
 import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
 import { apiErrorMessage } from "@api/apiClient";
 import { downloadExport } from "@api/download";
@@ -108,8 +109,19 @@ export default function CallsScreen({ route, navigation }: Props) {
     if (!afterCall || !me) return;
     let alive = true;
     (async () => {
-      await syncNow().catch(() => null);
-      const latest = await fetchers.latestOf(me).catch(() => null);
+      // Android writes the call-log row a moment after the call ends, so the
+      // first sync can miss it and "latest" is the call before. Retry until the
+      // newest call is the one that just ended (it ended within 90 s of when
+      // the phone saw the hang-up), then open it.
+      const endedAt = CallTracker?.lastCallEndedAt() ?? 0;
+      let latest: Call | null = null;
+      for (let i = 0; i < 6 && alive; i++) {
+        await syncNow().catch(() => null);
+        latest = await fetchers.latestOf(me).catch(() => null);
+        const end = latest ? new Date(latest.startedAt).getTime() + latest.durationSec * 1000 : 0;
+        if (!endedAt || end >= endedAt - 90_000) break;
+        await new Promise((r) => setTimeout(r, 2500));
+      }
       if (alive && latest) setOpen(latest);
     })();
     return () => {
