@@ -51,7 +51,7 @@ export function StatusesSection({ company }: { company: Company }) {
       <Saved m={save} />
       {rows.map((r, i) => (
         <View key={r.key ?? `new-${i}`} style={styles.statusRow}>
-          <View style={{ flex: 1 }}>
+          <View style={styles.statusName}>
             <TextField label={`Status ${i + 1}`} value={r.label} onChangeText={(label) => set(i, { label })} maxLength={24} />
           </View>
           <View style={styles.tones} accessibilityRole="radiogroup" accessibilityLabel={`Colour for ${r.label}`}>
@@ -400,7 +400,17 @@ export function OrganizationSection({ company }: { company: Company }) {
 
 const styles = StyleSheet.create({
   section: { gap: space.md },
-  statusRow: { flexDirection: "row", alignItems: "flex-end", gap: space.md, flexWrap: "wrap" },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: space.md,
+    flexWrap: "wrap",
+    paddingBottom: space.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.rule,
+  },
+  // never narrower than a name: on a phone the colours and Remove wrap below it
+  statusName: { flexGrow: 1, flexBasis: 220, minWidth: 200 },
   tones: { flexDirection: "row", gap: 6, paddingBottom: 14 },
   tone: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: palette.card },
   toneOn: { borderColor: palette.ink, transform: [{ scale: 1.15 }] },

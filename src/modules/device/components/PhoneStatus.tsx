@@ -6,13 +6,36 @@ import { Banner, Button, Card, Text } from "@shared/ui";
 import { useNow } from "@shared/hooks/useNow";
 import { useDeviceStore } from "../deviceStore";
 import { useSyncNow } from "../hooks/useSync";
+import { useAuthStore } from "@shared/store/useAuthStore";
+import { Pressable } from "react-native";
+import { Icon } from "@shared/ui";
 
 /** On the rep's own Android phone: is it sending calls, and a way to nudge it. */
 export function PhoneStatus() {
   const d = useDeviceStore();
   const sync = useSyncNow();
   const now = useNow(30_000);
+  const role = useAuthStore((s) => s.user?.role);
   if (!CallTracker) return null;
+
+  // a manager mostly reads the team; tracking their own phone is an option, not the page
+  if (!d.setupDone && role !== "rep") {
+    return (
+      <Pressable
+        onPress={() => d.set({ setupSkipped: false })}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.slim, pressed && { opacity: 0.7 }]}
+      >
+        <Icon name="phone" size={18} color={palette.ink2} />
+        <Text variant="caption" tone="secondary" style={{ flex: 1 }}>
+          Track this phone’s calls too
+        </Text>
+        <Text variant="label" style={{ textDecorationLine: "underline" }}>
+          Set up
+        </Text>
+      </Pressable>
+    );
+  }
 
   if (!d.setupDone) {
     return (
@@ -55,6 +78,15 @@ export function PhoneStatus() {
 
 const styles = StyleSheet.create({
   card: { gap: space.md },
+  slim: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    paddingVertical: space.sm,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: palette.rule,
+  },
   row: { flexDirection: "row", alignItems: "center", gap: space.md },
   dot: { width: 10, height: 10, borderRadius: 5 },
 });

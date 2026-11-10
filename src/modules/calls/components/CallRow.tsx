@@ -55,10 +55,11 @@ export function CallRow({ call: c, tz, showEmployee, dispositions, isWide, onPre
               ) : null}
             </View>
             <View style={styles.nameLine}>
-              <Text variant="mono" tone="tertiary" numberOfLines={1} style={[styles.sub, { flex: 1 }]}>
+              {/* a manager reads who made the call first, as on the callos admin log */}
+              <Text variant="caption" tone="tertiary" numberOfLines={1} style={{ flex: 1 }}>
+                {showEmployee && c.employee ? `${c.employee} · ` : ""}
                 {c.contactName ? formatPhone(c.phone) : TYPE_LABEL[c.type]}
-                {showEmployee && c.employee ? `  · ${c.employee}` : ""}
-                {c.callsWithClient && c.callsWithClient > 1 ? `  · ${c.callsWithClient} calls` : ""}
+                {c.callsWithClient && c.callsWithClient > 1 ? ` · ${c.callsWithClient} calls` : ""}
               </Text>
               <Text style={styles.time}>
                 {isConnected(c) ? clock(c.durationSec) : "—"} · {timeIn(c.startedAt, tz)}

@@ -45,7 +45,7 @@ export function StatTile({ label, value, aside, delta, upIsBad, mark, big, onPre
   );
   if (!onPress) return body;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}: ${value}. Open list`} style={{ flex: 1 }}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}: ${value}. Open list`} style={[styles.press, big && styles.big]}>
       {body}
     </Pressable>
   );
@@ -54,6 +54,8 @@ export function StatTile({ label, value, aside, delta, upIsBad, mark, big, onPre
 const styles = StyleSheet.create({
   tile: { flex: 1, minWidth: 140, paddingVertical: space.md + 2, paddingHorizontal: space.lg, gap: 6 },
   big: { minWidth: 220 },
+  // the wrapper must not shrink below the tile, or a wrapped row overlaps its neighbour
+  press: { flex: 1, minWidth: 140 },
   labelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   mark: { width: 8, height: 8 },
   markConnected: { backgroundColor: palette.connected, borderRadius: 2 },

@@ -14,7 +14,7 @@ function Card({ icon, label, value, sub }: { icon: IconName; label: string; valu
         <Text variant="label" tone="secondary">
           {label}
         </Text>
-        <Text variant="heading" numberOfLines={1}>
+        <Text variant="heading" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
           {value}
         </Text>
         {sub ? (
@@ -45,7 +45,7 @@ export function PersonalCards({ p }: { p: Personal }) {
         value={long ? clock(long.durationSec) : "—"}
         sub={long ? long.name || formatPhone(long.phone) : "No connected calls yet"}
       />
-      <Card icon="sync" label="Average duration" value={clock(p.avgDurationSec)} sub="per call" />
+      <Card icon="calls" label="Average duration" value={clock(p.avgDurationSec)} sub="per call" />
       <Card icon="chart" label="Daily average calls" value={String(p.dailyAvgCalls)} sub="calls a day" />
     </View>
   );

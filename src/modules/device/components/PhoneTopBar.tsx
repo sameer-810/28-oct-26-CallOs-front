@@ -82,6 +82,8 @@ export function PhoneTopBar() {
     <View style={{ paddingTop: insets.top, backgroundColor: palette.card }}>
       <View style={styles.bar}>
         <Brand />
+        {/* nothing to sync or fix until this phone tracks calls */}
+        {setupDone ? (
         <View style={styles.actions}>
           <Pressable
             onPress={() => setSheet("sync")}
@@ -107,6 +109,7 @@ export function PhoneTopBar() {
             ) : null}
           </Pressable>
         </View>
+        ) : null}
       </View>
 
       {simChanged ? (

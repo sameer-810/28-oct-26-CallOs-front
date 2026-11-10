@@ -8,7 +8,7 @@ import { useAuthStore } from "@shared/store/useAuthStore";
 import { useFilters } from "@shared/store/useFilters";
 import { clock, dateTimeIn, dayLabel, formatPhone, hourLabel, num, pct, talkTime } from "@shared/format";
 import { fonts, palette, radius, space } from "@shared/designSystem";
-import { Banner, Button, Card, Chip, EmptyState, RangeBar, Screen, Segmented, Text, TextField } from "@shared/ui";
+import { Banner, Button, Card, Chip, EmptyState, RangeBar, Screen, Segmented, Text, TextField, useBreakpoint } from "@shared/ui";
 import { Table, type Column } from "@shared/ui/Table";
 import { Heatmap } from "@shared/charts/Heatmap";
 import { Bars } from "@shared/charts/Bars";
@@ -328,8 +328,20 @@ function ReportFilterBar() {
   const [to, setTo] = useState(f.timeTo);
   const half = Boolean(from || to) && !validWindow(from, to);
   const any = f.types.length > 0 || f.sources.length > 0 || f.excludeDays.length > 0 || validWindow(f.timeFrom, f.timeTo);
+  const count = f.types.length + f.sources.length + f.excludeDays.length + (validWindow(f.timeFrom, f.timeTo) ? 1 : 0);
+  const { isWide } = useBreakpoint();
+  // on a phone the report comes first; the finer cuts open on demand
+  const [open, setOpen] = useState(false);
+  if (!isWide && !open) {
+    return (
+      <View style={styles.chips}>
+        <Chip label={count ? `More filters · ${count}` : "More filters"} selected={count > 0} onPress={() => setOpen(true)} />
+      </View>
+    );
+  }
   return (
     <View style={styles.filterBar}>
+      {!isWide ? <Button kind="quiet" size="sm" label="Hide filters" onPress={() => setOpen(false)} /> : null}
       <View style={styles.chips} role="group" aria-label="Call type and source">
         {CALL_TYPES.map((t) => (
           <Chip key={t} role="checkbox" label={TYPE_LABEL[t]} selected={f.types.includes(t)} onPress={() => f.toggleType(t)} />

@@ -135,7 +135,7 @@ export default function OpportunitiesScreen() {
                 ["Open again", num(sum.openAgain), "came back after a close"],
                 ["Closed", num(sum.closed), "clients"],
                 ["Close rate", `${(sum.closeRate * 100).toFixed(sum.closeRate * 100 < 10 ? 1 : 0)}%`, "of these clients"],
-                ["Repeat clients", num(sum.repeatClients), `avg ${sum.avgConnects.toFixed(1)} talks each`],
+                ["Repeat clients", num(sum.repeatClients), `bought before · ${sum.avgConnects.toFixed(1)} talks a client`],
               ] as const
             ).map(([label, n, sub], i, all) => (
               <View key={label} style={[styles.stage, i === all.length - 1 && { borderRightWidth: 0 }]}>
