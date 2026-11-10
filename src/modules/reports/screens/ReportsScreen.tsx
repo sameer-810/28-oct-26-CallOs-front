@@ -36,7 +36,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "history", label: "Call history" },
 ];
 const CALL_TYPES: CallType[] = ["incoming", "outgoing", "missed", "rejected", "blocked"];
-const CALL_SOURCES: CallSource[] = ["phone", "whatsapp", "cloud", "ai"];
+const CALL_SOURCES: CallSource[] = ["phone", "whatsapp", "cloud"];
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const CLIENT_COPY: Record<ClientKind, { title: string; body: string }> = {

@@ -15,7 +15,6 @@ export type IconName =
   | "spark"
   | "settings"
   | "more"
-  | "agent"
   | "bell"
   | "book"
   | "message"
@@ -64,12 +63,6 @@ export function Icon({ name, size = 20, color = palette.ink }: { name: IconName;
         <>
           <Circle cx={10} cy={10} r={2.6} {...p} />
           <Path d="M10 2.8v2M10 15.2v2M2.8 10h2M15.2 10h2M4.9 4.9l1.4 1.4M13.7 13.7l1.4 1.4M15.1 4.9l-1.4 1.4M6.3 13.7l-1.4 1.4" {...p} />
-        </>
-      )}
-      {name === "agent" && (
-        <>
-          <Path d="M4 11V9.5a6 6 0 0 1 12 0V11" {...p} />
-          <Path d="M4 11h2v4H4.8A.8.8 0 0 1 4 14.2zM16 11h-2v4h1.2a.8.8 0 0 0 .8-.8zM14 15c0 1.4-1.6 2.2-4 2.2" {...p} />
         </>
       )}
       {name === "bell" && (

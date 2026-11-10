@@ -10,7 +10,6 @@ import TeamScreen from "@modules/team/screens/TeamScreen";
 import SettingsScreen from "@modules/settings/screens/SettingsScreen";
 import AccountScreen from "@modules/account/screens/AccountScreen";
 import MoreScreen from "@modules/more/screens/MoreScreen";
-import AgentScreen from "@modules/agent/screens/AgentScreen";
 import InboxScreen from "@modules/inbox/screens/InboxScreen";
 import PlaybookScreen from "@modules/playbook/screens/PlaybookScreen";
 import BillingScreen from "@modules/billing/screens/BillingScreen";
@@ -36,7 +35,6 @@ const SCREENS: Record<keyof AppTabParamList, ComponentType<any>> = {
   Calls: CallsScreen,
   Opportunities: OpportunitiesScreen,
   Reports: ReportsScreen,
-  Agent: AgentScreen,
   Inbox: InboxScreen,
   Playbook: PlaybookScreen,
   Billing: BillingScreen,

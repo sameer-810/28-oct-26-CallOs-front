@@ -19,7 +19,6 @@ export type AppTabParamList = {
   Opportunities: undefined;
   /** `tab` opens a particular report — dashboard tiles pass it. */
   Reports: { tab?: string } | undefined;
-  Agent: undefined;
   /** `invoice`: back from the payment page. */
   Billing: { invoice?: string } | undefined;
   Team: undefined;

@@ -26,7 +26,7 @@ const TYPES: { id: CallType | "all"; label: string }[] = [
   { id: "rejected", label: "Rejected" },
   { id: "blocked", label: "Blocked" },
 ];
-const SOURCES: CallSource[] = ["phone", "whatsapp", "cloud", "ai"];
+const SOURCES: CallSource[] = ["phone", "whatsapp", "cloud"];
 /** Recorded calls, and among them the ones still waiting for a transcript. */
 type RecordingFilter = "" | "recorded" | "untranscribed";
 

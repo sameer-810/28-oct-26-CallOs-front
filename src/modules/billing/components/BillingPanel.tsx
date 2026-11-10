@@ -11,7 +11,7 @@ import { rupees } from "../money";
 import { useBilling, useBillingQuote, useCheckout, useInvoice, useTestPay } from "../hooks/useBilling";
 
 const PLAN_POINTS: Record<PaidPlan, string[]> = {
-  starter: ["Every call logged and recorded", "Reports, Excel and PDF", "Team, follow-ups, scripts and call review", "Cloud calling and the AI agent"],
+  starter: ["Every call logged and recorded", "Reports, Excel and PDF", "Team, follow-ups, scripts and call review", "Cloud calling from the browser"],
   growth: ["Everything in Starter", "Transcripts of every recorded call", "AI score, summary and coaching on each call", "Promises heard on calls become follow-ups"],
 };
 const TERM_LABEL: Record<number, string> = { 1: "Monthly", 3: "3 months", 12: "12 months" };

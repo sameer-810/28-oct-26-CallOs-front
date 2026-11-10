@@ -41,7 +41,6 @@ const linking: LinkingOptions<RootParamList> = {
           },
           Opportunities: "opportunities",
           Reports: "reports/:tab?",
-          Agent: "agent",
           Inbox: "inbox",
           Playbook: "scripts/:tab?",
           Billing: "billing",

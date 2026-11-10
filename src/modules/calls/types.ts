@@ -1,6 +1,6 @@
 export type CallType = "incoming" | "outgoing" | "missed" | "rejected" | "blocked";
-/** phone: the rep's SIM · whatsapp · cloud: a browser call · ai: the AI agent */
-export type CallSource = "phone" | "whatsapp" | "cloud" | "ai";
+/** phone: the rep's SIM · whatsapp · cloud: a browser call */
+export type CallSource = "phone" | "whatsapp" | "cloud";
 export type DealStatus = "open" | "open_again" | "closed";
 
 export interface Call {
@@ -81,7 +81,6 @@ export const SOURCE_LABEL: Record<CallSource, string> = {
   phone: "Phone",
   whatsapp: "WhatsApp",
   cloud: "Cloud call",
-  ai: "AI agent",
 };
 
 export const TRANSCRIPT_LABEL: Record<TranscriptStatus, string> = {

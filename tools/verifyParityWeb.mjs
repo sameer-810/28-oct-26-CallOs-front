@@ -86,7 +86,7 @@ try {
   // G3/G4 — calls: blocked, sources, recorded, table view
   await m.getByRole("link", { name: "Calls" }).click();
   await m.getByRole("button", { name: "7 days" }).click();
-  for (const chip of ["Blocked", "WhatsApp", "Cloud call", "AI agent", "Recorded", "Not transcribed yet"]) {
+  for (const chip of ["Blocked", "WhatsApp", "Cloud call", "Recorded", "Not transcribed yet"]) {
     check((await m.getByRole("button", { name: chip, exact: true }).count()) >= 1, `G3/G4 "${chip}" filter`);
   }
   const header = (p, h) => p.getByRole("columnheader", { name: new RegExp("^" + h + "$", "i") });

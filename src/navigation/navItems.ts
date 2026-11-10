@@ -23,7 +23,6 @@ export const NAV_ITEMS: NavItem[] = [
   { name: "Reports", label: "Reports", icon: "chart", roles: ["owner", "manager"], primary: true },
   { name: "Inbox", label: "Inbox", icon: "bell", roles: ["owner", "manager", "rep"], primary: false },
   { name: "Playbook", label: "Scripts", icon: "book", roles: ["owner", "manager", "rep"], primary: false },
-  { name: "Agent", label: "AI agent", icon: "agent", roles: ["owner", "manager"], primary: false },
   { name: "Team", label: "Team", icon: "team", roles: ["owner", "manager"], primary: false },
   { name: "Settings", label: "Settings", icon: "settings", roles: ["owner", "manager"], primary: false },
   { name: "Billing", label: "Billing", icon: "card", roles: ["owner"], primary: false },
