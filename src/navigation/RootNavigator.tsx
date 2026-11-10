@@ -41,6 +41,9 @@ export default function RootNavigator() {
     if (isAuthChecked && !isAuthenticated && deviceReady && useDeviceStore.getState().setupDone) {
       useDeviceStore.getState().reset();
       void unregisterBackgroundSync();
+      // the next person sets up their own phone; nothing runs for them meanwhile
+      CallTracker?.stopSyncService();
+      CallTracker?.setFollowups([]);
     }
   }, [isAuthChecked, isAuthenticated, deviceReady]);
 

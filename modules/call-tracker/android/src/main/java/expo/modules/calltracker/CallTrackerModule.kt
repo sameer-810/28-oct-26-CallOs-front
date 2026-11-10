@@ -39,7 +39,30 @@ class CallTrackerModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("CallTracker")
 
-    Events("onSharedAudio")
+    Events("onSharedAudio", "onCallEnded")
+
+    // the receiver tells a running app the moment a call ends, so it syncs at once
+    OnCreate { CallEvents.listener = { sendEvent("onCallEnded", mapOf("at" to System.currentTimeMillis().toDouble())) } }
+    OnDestroy { CallEvents.listener = null }
+
+    /** Starts the background-sync service and its ongoing notification; false if Android refused. */
+    Function("startSyncService") { text: String? ->
+      SyncService.start(context, text)
+    }
+
+    Function("stopSyncService") {
+      SyncService.stop(context)
+    }
+
+    /** New text for the ongoing notification ("Last synced 7:42 pm · 2 recordings waiting"). */
+    Function("updateSyncNotice") { text: String ->
+      SyncService.update(context, text)
+    }
+
+    /** A notification of the app's own: kind "coaching" or "setup". */
+    Function("notify") { kind: String, id: Int, title: String, text: String, url: String? ->
+      AppNotices.post(context, kind, id, title, text, url)
+    }
 
     Function("getDeviceInfo") {
       mapOf(

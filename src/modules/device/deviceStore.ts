@@ -37,6 +37,8 @@ interface DeviceState {
   simChanged: boolean;
   /** Follow-up reminders armed on the phone after the last sync. */
   alarms: number;
+  /** Inbox items already shown as a phone notification. */
+  noticed: string[];
 
   set: (patch: Partial<Omit<DeviceState, "set" | "reset">>) => void;
   reset: () => void;
@@ -59,6 +61,7 @@ const initial = {
   recordingFolderSeen: false,
   simChanged: false,
   alarms: 0,
+  noticed: [] as string[],
 };
 
 /** What this phone has set up for call tracking. Per install, cleared on sign-out. */

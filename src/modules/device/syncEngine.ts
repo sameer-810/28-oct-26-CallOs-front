@@ -21,6 +21,7 @@ import { phoneChecks } from "./phoneChecks";
 import { logSync } from "./syncLog";
 import { deviceApi } from "./api/deviceApi";
 import { callsApi } from "@modules/calls/api/callsApi";
+import { inboxApi } from "@modules/inbox/api/inboxApi";
 import type { SyncResult } from "./types";
 
 
@@ -78,6 +79,43 @@ async function sendWhatsAppCalls(deviceId: string) {
   return inserted;
 }
 
+/** A stable small number for a notification id. */
+const idOf = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7) & 0x7fffffff;
+
+/**
+ * New comments on the rep's calls, as phone notifications — what a push would
+ * do, from the sync that runs anyway. Each is shown once; tapping it opens the
+ * call at the moment the comment is pinned to.
+ */
+async function noticeInbox() {
+  if (!CallTracker) return;
+  const { items } = await inboxApi.list();
+  const seen = new Set(useDeviceStore.getState().noticed);
+  const fresh = items.filter((n) => !n.readAt && !seen.has(n.id)).slice(0, 5);
+  for (const n of fresh) {
+    const at = n.atSec != null ? `&at=${n.atSec}` : "";
+    const url = n.callId ? `callos://calls?open=${n.callId}${at}${n.commentId ? `&c=${n.commentId}` : ""}` : "callos://inbox";
+    CallTracker.notify("coaching", idOf(n.id), `${n.actorName} commented on your call`, n.text || n.subject, url);
+  }
+  if (fresh.length) {
+    useDeviceStore.getState().set({ noticed: [...seen, ...fresh.map((n) => n.id)].slice(-200) });
+    logSync(`inbox: ${fresh.length} new comment notifications`);
+  }
+}
+
+/** "Last synced 7:42 pm · 2 recordings waiting" on the ongoing notification. */
+function updateNotice() {
+  if (!CallTracker) return;
+  const d = useDeviceStore.getState();
+  const t = d.lastSyncAt ? new Date(d.lastSyncAt) : null;
+  const when = t ? t.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }) : "not yet";
+  const parts = [`Last synced ${when}`];
+  if (d.pending.length) parts.push(`${d.pending.length} recording${d.pending.length === 1 ? "" : "s"} waiting`);
+  if (d.alarms) parts.push(`${d.alarms} reminder${d.alarms === 1 ? "" : "s"} set`);
+  if (d.lastError) parts.push(d.lastError);
+  CallTracker.updateSyncNotice(parts.join(" · "));
+}
+
 /** The rep's follow-ups, armed as phone alarms so they ring with the app closed. */
 async function armFollowups() {
   if (!CallTracker) return;
@@ -125,6 +163,15 @@ async function run(): Promise<SyncResult> {
   // a swapped SIM: stop reading until setup is done again, so personal calls don't leak in
   const present = CallTracker.getSims();
   if (dev.sims.length && simsChanged(dev.sims, present)) {
+    if (!dev.simChanged) {
+      CallTracker.notify(
+        "setup",
+        4130,
+        "SIM change detected",
+        "Your SIM configuration changed. Set up your SIMs again to keep tracking calls.",
+        "callos://",
+      );
+    }
     dev.set({ simChanged: true, lastError: "Your SIM changed. Set up your SIMs again to keep tracking calls." });
     logSync("sim: a set-up SIM is missing; sync paused");
     await reportDevice().catch(() => {});
@@ -184,6 +231,7 @@ async function run(): Promise<SyncResult> {
     return 0;
   });
   await armFollowups().catch(() => logSync("follow-ups: could not arm reminders"));
+  await noticeInbox().catch(() => logSync("inbox: could not check for comments"));
 
   const newest = rows.reduce((m, r) => Math.max(m, r.date), dev.watermark ?? 0);
   logSync(`sync: ${rows.length} rows read, ${batch.length} sent, ${inserted} new, ${recordings} recordings, ${keep.length} waiting`);
@@ -194,6 +242,7 @@ async function run(): Promise<SyncResult> {
     lastError: null,
   });
   await reportDevice().catch(() => {});
+  updateNotice();
   return { ran: true, sent: batch.length, inserted, recordings };
 }
 

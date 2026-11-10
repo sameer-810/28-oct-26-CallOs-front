@@ -16,6 +16,11 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 
+/** Set while the app's module is alive: the receiver's line to it. */
+object CallEvents {
+  @Volatile var listener: (() -> Unit)? = null
+}
+
 object Prefs {
   const val FILE = "callos.calltracker"
   const val PROMPT_ENABLED = "promptEnabled"
@@ -43,6 +48,7 @@ class CallStateReceiver : BroadcastReceiver() {
     // RINGING → IDLE is a missed call, which shows up in the call log as such
     if (state == TelephonyManager.EXTRA_STATE_IDLE && previous == TelephonyManager.EXTRA_STATE_OFFHOOK) {
       prefs.edit().putLong(Prefs.LAST_ENDED_AT, System.currentTimeMillis()).apply()
+      CallEvents.listener?.invoke()
       if (prefs.getBoolean(Prefs.PROMPT_ENABLED, true) && !openSheet(context)) notify(context)
     }
   }

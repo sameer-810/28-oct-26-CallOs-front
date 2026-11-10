@@ -115,7 +115,14 @@ interface CallTrackerNative {
   /** true: rang out directly; false: opened the dialler. */
   placeCall(number: string, simSlot: number | null): boolean;
   takeSharedAudio(): SharedAudio | null;
+  /** The background-sync service and its ongoing notification; false if Android refused. */
+  startSyncService(text: string | null): boolean;
+  stopSyncService(): void;
+  updateSyncNotice(text: string): void;
+  /** A notification of the app's own. `url` opens on tap (callos://…). */
+  notify(kind: "coaching" | "setup", id: number, title: string, text: string, url: string | null): void;
   addListener(event: "onSharedAudio", fn: (a: SharedAudio) => void): { remove(): void };
+  addListener(event: "onCallEnded", fn: (e: { at: number }) => void): { remove(): void };
 }
 
 /**

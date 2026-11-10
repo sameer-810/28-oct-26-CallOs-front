@@ -16,6 +16,9 @@
   <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
   <!-- follow-up reminders are set again after a restart -->
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <!-- the background-sync service and its ongoing notification -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
   <application>
     <!-- Call ended → after-call sheet. Only the system (which holds
@@ -40,6 +43,12 @@
         <action android:name="android.service.notification.NotificationListenerService" />
       </intent-filter>
     </service>
+
+    <!-- Keeps calls syncing while the app is closed. Ours only, so not exported. -->
+    <service
+      android:name=".SyncService"
+      android:exported="false"
+      android:foregroundServiceType="dataSync" />
 
     <!-- Lead follow-up reminders: our own alarm, so not exported. -->
     <receiver android:name=".FollowupAlarmReceiver" android:exported="false" />

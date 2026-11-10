@@ -28,10 +28,19 @@ export function useForegroundSync() {
         }
       });
     void go();
+    // the ongoing "Call tracking is on" notification keeps this process — and
+    // this loop — alive with the app closed, as callos's background sync does
+    const service = CallTracker.startSyncService(null);
     const sub = AppState.addEventListener("change", (s) => s === "active" && void go());
-    const t = setInterval(() => AppState.currentState === "active" && void go(), EVERY_MS);
+    const t = setInterval(() => (service || AppState.currentState === "active") && void go(), EVERY_MS);
+    // a call just ended: Android writes it to the log a few seconds later
+    const ended = CallTracker.addListener("onCallEnded", () => {
+      setTimeout(() => void go(), 4000);
+      setTimeout(() => void go(), 20000);
+    });
     return () => {
       sub.remove();
+      ended.remove();
       clearInterval(t);
     };
   }, [setupDone, qc]);
